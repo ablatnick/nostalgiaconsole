@@ -1,0 +1,8 @@
+node_modules/
+dist/
+test/fixture/
+test/.userdata/
+*.png
+!build/icon.png
+!docs/*.png
+test/.ud-real/

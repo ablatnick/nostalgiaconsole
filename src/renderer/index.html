@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' greenblade: data:; font-src 'self'; connect-src 'self'">
+  <title>Greenblade</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-theme="classic">
+  <div id="bg" aria-hidden="true">
+    <div class="glow g1"></div>
+    <div class="glow g2"></div>
+    <div class="glow g3"></div>
+    <svg class="ribbons" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="rib1" x1="0" x2="1">
+          <stop offset="0" style="stop-color: var(--rib-a); stop-opacity: 0"/>
+          <stop offset=".45" style="stop-color: var(--rib-a); stop-opacity: .55"/>
+          <stop offset="1" style="stop-color: var(--rib-b); stop-opacity: 0"/>
+        </linearGradient>
+        <linearGradient id="rib2" x1="0" x2="1">
+          <stop offset="0" style="stop-color: var(--rib-b); stop-opacity: 0"/>
+          <stop offset=".6" style="stop-color: var(--rib-b); stop-opacity: .4"/>
+          <stop offset="1" style="stop-color: var(--rib-a); stop-opacity: 0"/>
+        </linearGradient>
+      </defs>
+      <g class="r r1"><path d="M-200 640 C 200 520, 520 760, 900 610 S 1500 470, 1900 560 L 1900 600 C 1500 520, 1250 650, 900 660 S 250 580, -200 700 Z" fill="url(#rib1)"/></g>
+      <g class="r r2"><path d="M-200 700 C 300 640, 600 820, 1000 700 S 1550 600, 1900 660 L 1900 680 C 1500 640, 1300 760, 950 740 S 300 690, -200 730 Z" fill="url(#rib2)"/></g>
+      <g class="r r3"><path d="M-200 520 C 250 600, 700 430, 1050 520 S 1600 640, 1900 540 L 1900 552 C 1600 660, 1300 560, 1050 540 S 300 640, -200 540 Z" fill="url(#rib1)"/></g>
+    </svg>
+    <div class="sparks"></div>
+  </div>
+
+  <header id="top">
+    <div id="clock"></div>
+    <div id="gamercard">
+      <div class="gc-text">
+        <div class="gc-name"></div>
+        <div class="gc-sub"></div>
+      </div>
+      <div class="gc-pic"></div>
+    </div>
+  </header>
+
+  <main id="dash"></main>
+
+  <footer id="hints"></footer>
+
+  <div id="overlay-root"></div>
+  <div id="toast" role="status"></div>
+  <div id="intro" hidden>
+    <div class="orb"><div class="ring r1"></div><div class="ring r2"></div><div class="core"></div></div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
