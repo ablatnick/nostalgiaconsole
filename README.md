@@ -65,6 +65,15 @@ whole desktop, add them as apps in Sunshine. A neat trick: add Greenblade
 itself as a Sunshine app on your gaming PC, so streaming it from a TV gives
 you the whole dashboard.
 
+On a Windows Sunshine host, `scripts/add-to-sunshine.ps1` installs
+Greenblade and adds it as a Sunshine app with its own cover
+(`build/boxart/greenblade-boxart.png`), so it shows up in Moonlight next to
+Desktop and Steam Big Picture:
+
+```powershell
+.\add-to-sunshine.ps1 -Source <folder or http URL holding the installer and cover>
+```
+
 Moonlight is found as `moonlight-qt`/`moonlight` on `PATH`, the snap, the
 Flatpak (`com.moonlight_stream.Moonlight`), or the default install folder on
 Windows and macOS. Set `MOONLIGHT_BIN` to override.

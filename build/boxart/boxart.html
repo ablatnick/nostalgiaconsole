@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+html,body{margin:0;width:600px;height:800px;overflow:hidden}
+body{font-family:"Segoe UI","Noto Sans","Ubuntu",sans-serif;
+ background:linear-gradient(180deg,#fbfcfc 0%,#e3e8ea 50%,#aeb9c0 100%);position:relative}
+.glow{position:absolute;border-radius:50%;filter:blur(50px)}
+.g1{width:520px;height:300px;left:-120px;top:470px;background:rgba(150,215,80,.6)}
+.g2{width:420px;height:320px;right:-140px;top:-110px;background:rgba(255,255,255,.95)}
+svg.rib{position:absolute;left:0;top:0}
+.orb{position:absolute;left:150px;top:150px;width:300px;height:300px;filter:drop-shadow(0 18px 30px rgba(40,90,10,.45))}
+.word{position:absolute;left:0;right:0;top:500px;text-align:center;font-size:84px;font-weight:300;letter-spacing:-2px;color:#4d575d}
+.word b{font-weight:600;color:#4f9a15}
+.sub{position:absolute;left:0;right:0;top:612px;text-align:center;font-size:24px;color:#6a757c;letter-spacing:.5px}
+.tiles{position:absolute;left:0;right:0;top:680px;display:flex;justify-content:center;gap:10px}
+.tiles i{display:block;width:70px;height:40px;border:3px solid #fff;border-radius:4px;box-shadow:0 6px 12px -6px rgba(30,50,60,.5)}
+</style></head><body>
+<div class="glow g1"></div><div class="glow g2"></div>
+<svg class="rib" width="600" height="800" viewBox="0 0 600 800">
+ <defs><linearGradient id="a" x1="0" x2="1"><stop offset="0" stop-color="#86cc3c" stop-opacity="0"/><stop offset=".5" stop-color="#86cc3c" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+ <linearGradient id="b" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".6" stop-color="#fff" stop-opacity=".7"/><stop offset="1" stop-color="#86cc3c" stop-opacity="0"/></linearGradient></defs>
+ <path d="M-60 560 C 120 470, 300 660, 660 520 L 660 560 C 320 690, 140 520, -60 610 Z" fill="url(#a)"/>
+ <path d="M-60 640 C 160 590, 360 740, 660 620 L 660 640 C 360 770, 160 625, -60 670 Z" fill="url(#b)"/>
+ <path d="M-60 470 C 150 540, 380 400, 660 480 L 660 490 C 380 420, 150 560, -60 482 Z" fill="url(#a)"/>
+</svg>
+<img class="orb" src="orb.svg">
+<div class="word">green<b>blade</b></div>
+<div class="sub">steam dashboard</div>
+<div class="tiles"><i style="background:linear-gradient(160deg,#6cbf24,#3f8f0e)"></i><i style="background:linear-gradient(160deg,#2c8fd6,#155988)"></i><i style="background:linear-gradient(160deg,#e0632a,#93330b)"></i><i style="background:linear-gradient(160deg,#7d58c6,#46297f)"></i></div>
+</body></html>
