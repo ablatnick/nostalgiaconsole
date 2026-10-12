@@ -9,7 +9,7 @@
 #>
 param(
   [string]$Source = $PSScriptRoot,
-  [string]$Installer = 'Greenblade Setup 0.1.0.exe',
+  [string]$Installer = 'Greenblade Setup 0.2.0.exe',
   [string]$InstallerSha256 = '',
   [string]$Cover = 'greenblade-boxart.png',
   [switch]$NoInstall,
@@ -47,6 +47,10 @@ if (-not $NoInstall) {
     $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $setup).Hash
     if ($hash -ne $InstallerSha256.ToUpper()) { throw "Installer checksum mismatch ($hash)" }
   }
+  # The installer can't replace files of a running copy (say, one left
+  # over from a stream).
+  Get-Process Greenblade -ErrorAction SilentlyContinue | Stop-Process -Force
+  Start-Sleep -Seconds 1
   Write-Host 'Installing Greenblade'
   Start-Process -FilePath $setup -ArgumentList '/S' -Wait
 }
@@ -85,8 +89,15 @@ if (-not (Test-Admin)) {
 # 3. Cover art goes next to Sunshine's own covers.
 $coversDir = Join-Path $confDir 'covers'
 New-Item -ItemType Directory -Force -Path $coversDir | Out-Null
-$coverPath = Join-Path $coversDir 'greenblade.png'
-Copy-Item -LiteralPath (Get-File $Cover) -Destination $coverPath -Force
+# Each cover gets a file name from its hash, so Sunshine never serves a
+# stale copy. Moonlight caches covers by app id (which comes from the app
+# name), so clients that already have the old cover need their Moonlight
+# box art cache cleared to see a new one.
+$coverSrc = Get-File $Cover
+$tag = (Get-FileHash -Algorithm SHA256 -LiteralPath $coverSrc).Hash.Substring(0, 8).ToLower()
+Get-ChildItem -LiteralPath $coversDir -Filter 'greenblade*.png' -ErrorAction SilentlyContinue | Remove-Item -Force
+$coverPath = Join-Path $coversDir "greenblade-$tag.png"
+Copy-Item -LiteralPath $coverSrc -Destination $coverPath -Force
 
 # 4. Add (or replace) the Greenblade app.
 $json = if (Test-Path -LiteralPath $appsFile) { Get-Content -Raw -LiteralPath $appsFile | ConvertFrom-Json } else { [pscustomobject]@{ env = @{}; apps = @() } }

@@ -68,6 +68,11 @@ const SOUNDS = {
   open: () => { whoosh(0, 0.35, 300, 3000, 0.08); tone(660, 0, 0.2, { gain: 0.08, type: 'triangle' }); tone(990, 0.08, 0.3, { gain: 0.07 }); },
   close: () => whoosh(0, 0.3, 2600, 400, 0.08),
   error: () => { tone(220, 0, 0.18, { gain: 0.12, type: 'triangle' }); tone(196, 0.12, 0.22, { gain: 0.1, type: 'triangle' }); },
+  notify: () => {
+    tone(784, 0, 0.18, { gain: 0.09, type: 'triangle' });
+    tone(1175, 0.09, 0.28, { gain: 0.08, type: 'triangle' });
+    tone(1568, 0.18, 0.5, { gain: 0.05 });
+  },
   launch: () => {
     [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.07, 0.6, { gain: 0.08, type: 'triangle' }));
     whoosh(0.1, 0.8, 400, 4000, 0.06);

@@ -185,7 +185,7 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.on('focus', () => refreshSoon());
-  win.loadURL('greenblade://ui/index.html' + (opts.capture ? '?capture=1' : ''));
+  win.loadURL('greenblade://ui/index.html' + (opts.capture ? '?capture=1' + (arg('intro') ? '&intro=1' : '') : ''));
   if (opts.capture) runCapture();
 }
 

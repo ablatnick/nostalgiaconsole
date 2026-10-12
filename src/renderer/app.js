@@ -1,6 +1,7 @@
 import { startInput } from './input.js';
 import * as sound from './sound.js';
 import { icon } from './icons.js';
+import { avatarSvg, PARTS, VIEW_HEAD, VIEW_FULL, normalizeLook, randomLook } from './avatar.js';
 
 const api = window.greenblade;
 const params = new URLSearchParams(location.search);
@@ -115,12 +116,24 @@ function artEl(item, kinds, { portrait = false, lazy = false } = {}) {
   return box;
 }
 
-function toast(msg) {
+// Console-style notification: a glowing ring pops up at the bottom and
+// the message slides out of it.
+function notify(title, msg, { img = null, ms = 3800, chime = true } = {}) {
   const t = $('#toast');
-  t.textContent = msg;
+  t.classList.remove('show');
+  void t.offsetWidth;
+  const ring = img ? `<img alt="" src="${esc(img)}">` : icon('controller');
+  t.innerHTML = `<div class="n-ring">${ring}</div><div class="n-text"><small>${esc(title)}</small><b>${esc(msg)}</b></div>`;
+  const pic = t.querySelector('img');
+  if (pic) pic.onerror = () => { pic.replaceWith(document.createRange().createContextualFragment(icon('controller'))); };
   t.classList.add('show');
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => t.classList.remove('show'), 2600);
+  if (chime) sound.play('notify');
+  clearTimeout(notify.timer);
+  notify.timer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function toast(msg) {
+  notify('greenblade', msg, { chime: false, ms: 2800 });
 }
 
 // ---------- data ----------
@@ -214,6 +227,8 @@ function settingTiles() {
   const next = (list, v) => list[(list.indexOf(v) + 1) % list.length];
   return [
     { key: 'set:theme', type: 'icon', icon: 'palette', label: 'theme', value: s.theme, title: 'theme', sub: 'change the dashboard colors', colors: ['#7d58c6', '#46297f'], activate: set({ theme: next(THEMES, s.theme) }) },
+    { key: 'set:avatar-edit', type: 'avatar', label: 'my avatar', value: 'customize', title: 'my avatar', sub: 'change your avatar\'s features and style', activate: () => openAvatarEditor() },
+    { key: 'set:avatar-show', type: 'icon', icon: 'user', label: 'avatar on spotlight', value: onoff(s.avatar), title: 'show avatar', sub: 'your avatar stands on the spotlight channel', colors: ['#5aa51e', '#2f6f0c'], activate: set({ avatar: !s.avatar }) },
     { key: 'set:sound', type: 'icon', icon: s.sound ? 'sound' : 'mute', label: 'sounds', value: onoff(s.sound), title: 'interface sounds', sub: 'blips and swooshes while you browse', colors: ['#2c8fd6', '#155988'], activate: set({ sound: !s.sound }) },
     { key: 'set:volume', type: 'icon', icon: 'volume', label: 'volume', value: `${s.volume}%`, title: 'sound volume', sub: 'loudness of the interface sounds', colors: ['#1aa3a3', '#0d6464'], activate: set({ volume: VOLUMES[(VOLUMES.indexOf(s.volume) + 1) % VOLUMES.length] || 60 }) },
     { key: 'set:intro', type: 'icon', icon: 'sparkle', label: 'startup intro', value: onoff(s.intro), title: 'startup intro', sub: 'play the boot animation when greenblade opens', colors: ['#d9a400', '#8d6900'], activate: set({ intro: !s.intro }) },
@@ -311,7 +326,8 @@ async function openSteam(action, id) {
 
 async function launch(g) {
   sound.play('launch');
-  showLaunching(g);
+  wave();
+  notify('starting game', g.name, { img: artUrl(g, 'header'), chime: false });
   try {
     await api.steam('run', g.gameId);
   } catch {
@@ -322,7 +338,8 @@ async function launch(g) {
 
 async function startStream(g) {
   sound.play('launch');
-  showLaunching(g, `connecting to ${g.hostName}`);
+  wave();
+  notify(`streaming from ${g.hostName}`, g.name, { img: g.boxart ? artUrl(g) : null, chime: false });
   try {
     await api.stream(g.host, g.appid);
   } catch {
@@ -365,6 +382,11 @@ function tileEl(t) {
     e.append(artEl(t.game, ['header', 'portrait']));
     if (isPinned(t.game)) e.append(el('div', 'badge pin', icon('pin')));
     if (t.game.kind === 'shortcut') e.append(el('div', 'badge kind', 'app'));
+  } else if (t.type === 'avatar') {
+    e.style.setProperty('--c1', '#9fd85f');
+    e.style.setProperty('--c2', '#3f8f0e');
+    e.append(el('div', 'avatar-tile', avatarSvg(look(), { viewBox: VIEW_HEAD })));
+    e.append(el('div', 'tile-label', `<b>${esc(t.label)}</b><span>${esc(t.value)}</span>`));
   } else if (t.type === 'profile') {
     const u = state.lib.user;
     e.style.setProperty('--c1', '#3d4a52');
@@ -425,16 +447,52 @@ function metrics() {
   return { vw, vh, tw, th, x0: Math.max(40, vw * 0.09), top: Math.max(150, vh * 0.25) };
 }
 
-function tilePlacement(d, m) {
+// compact: the spotlight row makes room for the avatar on the right.
+function tilePlacement(d, m, compact = false) {
   if (d === 0) return { x: m.x0, y: 0, s: 1, o: 1, z: 100 };
   if (d < 0) return { x: m.x0 - (m.tw + 60) * -d, y: 0, s: 1, o: 0, z: 100 + d };
+  const step = compact ? 0.44 : 0.6;
+  const last = compact ? 4 : 6;
   let x = m.x0 + m.tw + 34;
   let s = 0.66;
   for (let k = 1; k < d; k++) {
-    x += m.tw * s * 0.6;
+    x += m.tw * s * step;
     s *= 0.84;
   }
-  return { x, y: (m.th - m.th * s) / 2 - d * 5, s, o: d > 6 ? 0 : 1 - (d - 1) * 0.11, z: 100 - d };
+  return { x, y: (m.th - m.th * s) / 2 - d * 5, s, o: d > last ? 0 : 1 - (d - 1) * 0.13, z: 100 - d };
+}
+
+function avatarShown() {
+  const ch = state.channels[state.ch];
+  return state.settings.avatar && ch && ch.key === 'spotlight' && !state.overlays.length;
+}
+
+function placeAvatar(m) {
+  const av = $('#avatar');
+  const h = Math.min(m.vh * 0.46, m.th * 1.7);
+  const w = h / 2;
+  av.style.height = h + 'px';
+  av.style.width = w + 'px';
+  av.style.left = (m.vw - w - Math.max(24, m.vw * 0.035)) + 'px';
+  av.style.top = (m.top + m.th + 64 - h) + 'px';
+  av.classList.toggle('show', avatarShown());
+}
+
+function look() {
+  return normalizeLook(state.settings.avatarLook);
+}
+
+function dressAvatar() {
+  $('#avatar').innerHTML = avatarSvg(look());
+  for (const e of document.querySelectorAll('.tile .avatar-tile')) e.innerHTML = avatarSvg(look(), { viewBox: VIEW_HEAD });
+}
+
+function wave() {
+  const av = $('#avatar');
+  av.classList.remove('wave');
+  void av.offsetWidth;
+  av.classList.add('wave');
+  setTimeout(() => av.classList.remove('wave'), 1900);
 }
 
 function layout() {
@@ -457,8 +515,9 @@ function layout() {
     sec.classList.toggle('far', rel >= 2);
     sec.classList.toggle('gone', rel < 0);
     const fi = focusIndex(ch);
+    const compact = state.settings.avatar && ch.key === 'spotlight';
     [...sec.querySelector('.row').children].forEach((te, ti) => {
-      const p = tilePlacement(ti - fi, m);
+      const p = tilePlacement(ti - fi, m, compact);
       te.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) scale(${p.s})`;
       te.style.opacity = p.o;
       te.style.zIndex = p.z;
@@ -468,6 +527,7 @@ function layout() {
     const cap = sec.querySelector('.caption');
     cap.innerHTML = t ? `<div class="cap-title">${esc(t.title)}</div><div class="cap-sub">${esc(t.sub || '')}</div>` : '';
   });
+  placeAvatar(m);
   renderHints();
 }
 
@@ -569,10 +629,10 @@ function fillGamerpic(box, user) {
     const img = new Image();
     img.alt = '';
     img.src = `greenblade://art/avatar/${user.steamId64}/img?v=${state.avatarStamp}`;
-    img.onerror = () => { box.innerHTML = icon('user', 'gamerpic-ico'); };
+    img.onerror = () => { box.innerHTML = avatarSvg(look(), { viewBox: VIEW_HEAD, cls: 'gamerpic-av' }); };
     box.append(img);
   } else {
-    box.innerHTML = icon('user', 'gamerpic-ico');
+    box.innerHTML = avatarSvg(look(), { viewBox: VIEW_HEAD, cls: 'gamerpic-av' });
   }
 }
 
@@ -590,6 +650,7 @@ function tickClock() {
 // ---------- hints ----------
 
 function renderHints() {
+  $('#avatar').classList.toggle('show', avatarShown());
   const top = state.overlays[state.overlays.length - 1];
   const hints = top ? top.hints() : dashHints();
   $('#hints').innerHTML = hints.map(([b, label]) =>
@@ -639,6 +700,8 @@ function menu(items, container, onChange) {
   return {
     move(d) { const before = i; set(i + d); if (i !== before) sound.play('move'); },
     run() { sound.play('select'); items[i].run(); },
+    set,
+    index: () => i,
   };
 }
 
@@ -790,6 +853,7 @@ function openLibrary() {
   requestAnimationFrame(renderGrid);
 }
 
+// The guide: a dark glossy panel with a gamercard and tabs (LB/RB).
 function openGuide() {
   if (state.overlays.some((o) => o.guide)) return;
   sound.play('open');
@@ -798,11 +862,14 @@ function openGuide() {
   root.querySelector('.scrim').addEventListener('click', () => popOverlay());
   const panel = el('div', 'guide-panel');
   root.append(panel);
-  const head = el('div', 'guide-head');
+  panel.append(el('div', 'guide-orb', '<i></i>'));
+  const tabsEl = el('div', 'guide-tabs');
+  panel.append(tabsEl);
+  const card = el('div', 'guide-card');
   const pic = el('div', 'gc-pic');
   fillGamerpic(pic, state.lib.user);
-  head.append(pic, el('div', 'guide-who', `<b>${esc(displayName())}</b><span>${gamesLine()}</span>`));
-  panel.append(head);
+  card.append(pic, el('div', 'guide-who', `<b>${esc(displayName())}</b><span>${gamesLine()}</span><span class="guide-online">${icon('controller')} online · steam</span>`));
+  panel.append(card);
   const list = el('div', 'menu');
   panel.append(list);
 
@@ -811,17 +878,45 @@ function openGuide() {
     const ci = state.channels.findIndex((c) => c.key === key);
     if (ci >= 0) { state.ch = ci; state.focus[key] = 0; layout(); }
   };
-  const recent = state.all.filter((g) => g.lastPlayed > 0).sort(byRecent).slice(0, 3);
-  const items = [
-    { icon: 'controller', label: 'home', run: goChannel('spotlight') },
-    { icon: 'grid', label: 'game library', run: () => { closeAll(); openLibrary(); } },
-    ...recent.map((g) => ({ icon: 'play', label: g.name, note: timeAgo(g.lastPlayed), run: () => { closeAll(); launch(g); } })),
-    { icon: 'gear', label: 'settings', run: goChannel('settings') },
-    { icon: 'bigpicture', label: 'steam big picture', run: () => { closeAll(); openSteam('bigpicture'); } },
-    { icon: 'fullscreen', label: 'toggle full screen', run: () => api.toggleFullscreen() },
-    { icon: 'power', label: 'quit greenblade', run: () => api.quit() },
+  const recent = state.all.filter((g) => g.lastPlayed > 0).sort(byRecent).slice(0, 5);
+  const ml = state.lib.moonlight;
+  const tabs = [
+    { icon: 'controller', label: 'home', items: () => [
+      { icon: 'controller', label: 'dashboard home', run: goChannel('spotlight') },
+      { icon: 'grid', label: 'game library', note: `${state.all.length}`, run: () => { closeAll(); openLibrary(); } },
+      { icon: 'user', label: 'my avatar', run: () => { closeAll(); openAvatarEditor(); } },
+      { icon: 'bigpicture', label: 'steam big picture', run: () => { closeAll(); openSteam('bigpicture'); } },
+      { icon: 'fullscreen', label: 'toggle full screen', run: () => api.toggleFullscreen() },
+      { icon: 'power', label: 'quit greenblade', run: () => api.quit() },
+    ] },
+    { icon: 'play', label: 'games', items: () => [
+      ...recent.map((g) => ({ icon: 'play', label: g.name, note: timeAgo(g.lastPlayed).replace('played ', ''), run: () => { closeAll(); launch(g); } })),
+      { icon: 'grid', label: 'all games', run: () => { closeAll(); openLibrary(); } },
+    ] },
+    { icon: 'stream', label: 'streaming', items: () => [
+      ...state.streams.map((g) => ({ icon: 'stream', label: g.name, note: g.hostName, run: () => { closeAll(); startStream(g); } })),
+      ...(ml && ml.installed ? [{ icon: 'stream', label: 'open moonlight', run: () => { closeAll(); api.openMoonlight(); } }] : []),
+      ...(!state.streams.length && !(ml && ml.installed) ? [{ icon: 'info', label: 'moonlight is not installed', run: () => {} }] : []),
+    ] },
+    { icon: 'gear', label: 'settings', items: () => [
+      { icon: 'gear', label: 'dashboard settings', run: goChannel('settings') },
+      { icon: 'palette', label: `theme: ${state.settings.theme}`, run: async () => { state.settings = await api.setSettings({ theme: THEMES[(THEMES.indexOf(state.settings.theme) + 1) % THEMES.length] }); applySettings(); rebuild(); show(tab, m.index()); } },
+      { icon: state.settings.sound ? 'sound' : 'mute', label: `sounds: ${state.settings.sound ? 'on' : 'off'}`, run: async () => { state.settings = await api.setSettings({ sound: !state.settings.sound }); applySettings(); show(tab, m.index()); } },
+      { icon: 'gear', label: 'steam settings', run: () => { closeAll(); openSteam('settings'); } },
+    ] },
   ];
-  const m = menu(items, list);
+
+  let tab = 0;
+  let m = null;
+  function show(t, at = 0) {
+    tab = (t + tabs.length) % tabs.length;
+    tabsEl.innerHTML = `<span class="btn btn-lb">LB</span>${tabs.map((tb, k) => `<span class="gtab${k === tab ? ' on' : ''}">${icon(tb.icon)}<em>${esc(tb.label)}</em></span>`).join('')}<span class="btn btn-rb">RB</span>`;
+    [...tabsEl.querySelectorAll('.gtab')].forEach((e, k) => e.addEventListener('click', () => { sound.play('channel'); show(k); }));
+    list.innerHTML = '';
+    m = menu(tabs[tab].items(), list);
+    m.set(at);
+  }
+  show(0);
 
   pushOverlay({
     el: root,
@@ -829,55 +924,140 @@ function openGuide() {
     handle(a) {
       if (a === 'up') m.move(-1);
       else if (a === 'down') m.move(1);
+      else if (a === 'lb' || a === 'left') { sound.play('channel'); show(tab - 1); }
+      else if (a === 'rb' || a === 'right') { sound.play('channel'); show(tab + 1); }
       else if (a === 'a') m.run();
       else if (a === 'b' || a === 'view' || a === 'guide') popOverlay();
     },
-    hints: () => [['a', 'select'], ['b', 'close']],
+    hints: () => [['a', 'select'], ['lb', 'tabs'], ['b', 'close']],
   });
 }
 
-function showLaunching(g, label = 'starting') {
-  const root = el('div', 'overlay launching');
-  const card = el('div', 'launch-card');
-  card.append(artEl(g, g.kind === 'moonlight' ? (g.boxart ? ['boxart'] : []) : ['header', 'portrait']));
-  card.append(el('div', 'launch-text', `<div class="spinner"><i></i><i></i><i></i><i></i></div><div><small>${esc(label)}</small><b>${esc(g.name)}</b></div>`));
-  root.append(card);
-  let closed = false;
-  const view = {
-    el: root,
-    handle() { close(); },
-    hints: () => [['b', 'dismiss']],
-  };
-  function close() {
-    if (closed) return;
-    closed = true;
-    const k = state.overlays.indexOf(view);
-    if (k >= 0) {
-      state.overlays.splice(k, 1);
-      root.classList.remove('in');
-      root.classList.add('out');
-      setTimeout(() => root.remove(), 420);
-      renderHints();
-    }
+// ---------- avatar editor ----------
+
+function openAvatarEditor() {
+  if (state.overlays.some((o) => o.avatarEditor)) return;
+  sound.play('open');
+  const orig = look();
+  let cur = { ...orig };
+  let cat = 0;
+
+  const root = el('div', 'overlay aved');
+  const panel = el('div', 'aved-panel');
+  root.append(panel);
+  const side = el('div', 'aved-side', '<h1>my avatar</h1>');
+  const cats = el('div', 'aved-cats');
+  side.append(cats);
+  const stage = el('div', 'aved-stage');
+  const figure = el('div', 'aved-figure');
+  stage.append(el('div', 'aved-floor'), figure);
+  const strip = el('div', 'aved-strip');
+  const label = el('div', 'aved-label');
+  panel.append(side, stage, label, strip);
+
+  let group = '';
+  const catEls = PARTS.map((p, k) => {
+    if (p.group !== group) { group = p.group; cats.append(el('div', 'aved-group', esc(group))); }
+    const b = el('button', 'aved-cat', esc(p.label));
+    b.tabIndex = -1;
+    b.addEventListener('click', () => { pickCat(k); sound.play('move'); });
+    cats.append(b);
+    return b;
+  });
+
+  function opts(p) { return p.values || p.colors; }
+
+  function drawFigure() {
+    figure.innerHTML = avatarSvg(cur);
+    figure.classList.toggle('face', !!PARTS[cat].face);
   }
-  pushOverlay(view);
-  setTimeout(close, 6000);
+
+  function drawStrip() {
+    const p = PARTS[cat];
+    const list = opts(p);
+    const at = Math.max(0, list.indexOf(cur[p.key]));
+    strip.innerHTML = '';
+    list.forEach((v, k) => {
+      const card = el('div', 'aved-opt' + (k === at ? ' on' : '') + (p.colors ? ' swatch' : ''));
+      if (p.colors) card.append(el('i', '', ''));
+      else card.innerHTML = avatarSvg({ ...cur, [p.key]: v }, { viewBox: p.face ? VIEW_HEAD : VIEW_FULL, cls: 'aved-mini' });
+      if (p.colors) card.querySelector('i').style.background = v;
+      card.addEventListener('click', () => { choose(k); sound.play('move'); });
+      strip.append(card);
+    });
+    const on = strip.children[at];
+    if (on) on.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    label.innerHTML = `<b>${esc(p.label)}</b><span>${p.colors ? `color ${at + 1} of ${list.length}` : esc(String(list[at]))}</span>`;
+  }
+
+  function pickCat(k) {
+    cat = (k + PARTS.length) % PARTS.length;
+    catEls.forEach((e, i) => e.classList.toggle('focused', i === cat));
+    catEls[cat].scrollIntoView({ block: 'nearest' });
+    drawFigure();
+    drawStrip();
+  }
+
+  function choose(k) {
+    const p = PARTS[cat];
+    const list = opts(p);
+    cur = { ...cur, [p.key]: list[(k + list.length) % list.length] };
+    drawFigure();
+    drawStrip();
+  }
+
+  function step(d) {
+    const p = PARTS[cat];
+    choose(Math.max(0, opts(p).indexOf(cur[p.key])) + d);
+    sound.play('move');
+  }
+
+  async function save() {
+    const changed = JSON.stringify(cur) !== JSON.stringify(orig);
+    if (changed) {
+      state.settings = await api.setSettings({ avatarLook: cur });
+      dressAvatar();
+      renderGamercard();
+      notify('avatar saved', 'looking good', { chime: true });
+    }
+    popOverlay({ silent: changed });
+    if (changed) setTimeout(wave, 300);
+  }
+
+  pickCat(0);
+  pushOverlay({
+    el: root,
+    avatarEditor: true,
+    handle(a) {
+      if (a === 'up') { pickCat(cat - 1); sound.play('move'); }
+      else if (a === 'down') { pickCat(cat + 1); sound.play('move'); }
+      else if (a === 'left') step(-1);
+      else if (a === 'right') step(1);
+      else if (a === 'lb') { pickCat(PARTS.findIndex((p) => p.group !== PARTS[cat].group)); sound.play('channel'); }
+      else if (a === 'rb') { pickCat(PARTS.findIndex((p) => p.group !== PARTS[cat].group)); sound.play('channel'); }
+      else if (a === 'y') { cur = normalizeLook(randomLook()); drawFigure(); drawStrip(); sound.play('select'); figure.classList.remove('pop'); void figure.offsetWidth; figure.classList.add('pop'); }
+      else if (a === 'x') { cur = { ...orig }; drawFigure(); drawStrip(); sound.play('back'); }
+      else if (a === 'a' || a === 'b' || a === 'start') save();
+    },
+    hints: () => [['a', 'save'], ['y', 'random'], ['x', 'undo changes'], ['lb', 'features / style'], ['b', 'save & exit']],
+  });
 }
 
 // ---------- settings / intro ----------
 
 function applySettings() {
   document.body.dataset.theme = state.settings.theme;
+  dressAvatar();
   sound.configure(state.settings);
 }
 
 function runIntro() {
   const intro = $('#intro');
   intro.hidden = false;
-  state.introUntil = Date.now() + 2600;
+  state.introUntil = Date.now() + 3000;
   requestAnimationFrame(() => intro.classList.add('play'));
   sound.play('intro');
-  setTimeout(endIntro, 2600);
+  setTimeout(endIntro, 3000);
 }
 
 function endIntro() {
@@ -935,7 +1115,8 @@ async function boot() {
     rebuild();
   });
   startInput(handle);
-  if (settings.intro && !CAPTURE) runIntro();
+  $('#avatar').addEventListener('click', () => { if (!state.overlays.length) openAvatarEditor(); });
+  if (settings.intro && (!CAPTURE || params.has('intro'))) runIntro();
   document.body.classList.add('ready');
 }
 

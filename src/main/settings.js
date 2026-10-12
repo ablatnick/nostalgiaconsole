@@ -16,6 +16,8 @@ const DEFAULTS = {
   afterLaunch: 'stay',
   communityAvatar: true,
   moonlight: true,
+  avatar: true,
+  avatarLook: null,
   gamertag: '',
   pinned: [],
 };
@@ -24,10 +26,18 @@ function sanitize(input) {
   const s = { ...DEFAULTS };
   if (!input || typeof input !== 'object') return s;
   if (THEMES.includes(input.theme)) s.theme = input.theme;
-  for (const k of ['sound', 'intro', 'showTools', 'fullscreen', 'communityAvatar', 'moonlight']) {
+  for (const k of ['sound', 'intro', 'showTools', 'fullscreen', 'communityAvatar', 'moonlight', 'avatar']) {
     if (typeof input[k] === 'boolean') s[k] = input[k];
   }
   if (Number.isFinite(input.volume)) s.volume = Math.max(0, Math.min(100, Math.round(input.volume)));
+  // The renderer checks each value against the parts it offers.
+  if (input.avatarLook && typeof input.avatarLook === 'object') {
+    const look = {};
+    for (const [k, v] of Object.entries(input.avatarLook).slice(0, 40)) {
+      if (/^[a-zA-Z]{1,20}$/.test(k) && typeof v === 'string' && /^[#a-z0-9-]{1,16}$/i.test(v)) look[k] = v;
+    }
+    s.avatarLook = look;
+  }
   if (AFTER_LAUNCH.includes(input.afterLaunch)) s.afterLaunch = input.afterLaunch;
   if (typeof input.gamertag === 'string') s.gamertag = input.gamertag.slice(0, 32);
   if (Array.isArray(input.pinned)) {

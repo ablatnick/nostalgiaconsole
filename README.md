@@ -12,8 +12,14 @@ also lists games you can stream from other PCs with Moonlight.
   Steam's CDN.
 - **Game library** grid sorted by recently played, A to Z, most played, or
   size on disk. You can **pin** games to spotlight.
-- A **guide** menu, synthesized interface sounds, a startup intro, and four
-  themes: classic, midnight, ember and arctic.
+- An **avatar** that stands on the spotlight channel. Build it in the
+  **my avatar** editor: body type, skin, hair, eyes, eyebrows, mouth, facial
+  hair, glasses, hats and clothes, with a live preview. Y gives you a random
+  avatar. When you have no Steam profile picture, your avatar's head is your
+  gamerpic.
+- A **guide** with a gamercard and tabs (home, games, streaming, settings),
+  console-style pop-up notifications, synthesized interface sounds, a boot
+  animation, and four themes: classic, midnight, ember and arctic.
 - **Moonlight**: every app on every paired host (Sunshine or GeForce
   Experience) shows up in the streaming channel and starts with one press.
 - Controller first, but keyboard and mouse work too. Gamepad input is ignored
@@ -32,7 +38,7 @@ installed and logged in. Greenblade never opens any other URL.
 | X | X | Play now |
 | Y | Y | Pin / unpin (otherwise opens the game library) |
 | LB / RB | Q / E | Skip 5 tiles, or change sort in the library |
-| View / Back | Tab / G | Guide |
+| View / Back | Tab / G | Guide (LB/RB switch tabs) |
 | | F11 | Full screen |
 
 ## Install
@@ -66,9 +72,9 @@ itself as a Sunshine app on your gaming PC, so streaming it from a TV gives
 you the whole dashboard.
 
 On a Windows Sunshine host, `scripts/add-to-sunshine.ps1` installs
-Greenblade and adds it as a Sunshine app with its own cover
-(`build/boxart/greenblade-boxart.png`), so it shows up in Moonlight next to
-Desktop and Steam Big Picture:
+Greenblade and adds it as a Sunshine app with its own game-case style cover
+(`build/boxart/greenblade-boxart.png`, made by `node build/boxart/make-boxart.mjs`),
+so it shows up in Moonlight next to Desktop and Steam Big Picture:
 
 ```powershell
 .\add-to-sunshine.ps1 -Source <folder or http URL holding the installer and cover>
