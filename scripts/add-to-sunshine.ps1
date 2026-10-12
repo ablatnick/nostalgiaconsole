@@ -57,6 +57,8 @@ Write-Host "Greenblade: $exe"
 # 2. Find Sunshine and its apps.json.
 $svc = Get-CimInstance Win32_Service -Filter "Name='SunshineService'" -ErrorAction SilentlyContinue
 $sunDir = if ($svc -and $svc.PathName) { Split-Path ($svc.PathName.Trim('"') -replace '"\s.*$', '') } else { "$env:ProgramFiles\Sunshine" }
+# The service binary is sunshinesvc.exe in Sunshine\tools; config is one level up.
+if ((Split-Path -Leaf $sunDir) -eq 'tools') { $sunDir = Split-Path $sunDir }
 if (-not (Test-Path -LiteralPath $sunDir)) { throw "Sunshine not found in $sunDir" }
 $confDir = Join-Path $sunDir 'config'
 $appsFile = Join-Path $confDir 'apps.json'
@@ -95,11 +97,11 @@ $apps += [pscustomobject]@{
   'name'           = 'Greenblade'
   'cmd'            = "`"$exe`""
   'image-path'     = $coverPath
-  'auto-detach'    = 'true'
-  'wait-all'       = 'true'
-  'exit-timeout'   = '5'
-  'exclude-global-prep-cmd' = 'false'
-  'elevated'       = 'false'
+  'auto-detach'    = $true
+  'wait-all'       = $true
+  'exit-timeout'   = 5
+  'exclude-global-prep-cmd' = $false
+  'elevated'       = $false
 }
 $json.apps = $apps
 # Sunshine's parser does not want a BOM.
