@@ -1,6 +1,6 @@
 {
   "name": "nostalgiaconsole",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "An Xbox 360 NXE-style dashboard for your Steam library",
   "main": "src/main/main.js",
   "scripts": {

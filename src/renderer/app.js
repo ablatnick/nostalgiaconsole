@@ -243,7 +243,6 @@ function settingTiles() {
   return [
     { key: 'set:theme', type: 'icon', icon: 'palette', label: 'theme', value: s.theme, title: 'theme', sub: 'change the dashboard colors', colors: ['#7d58c6', '#46297f'], activate: set({ theme: next(THEMES, s.theme) }) },
     { key: 'set:avatar-edit', type: 'avatar', label: 'my avatar', value: 'customize', title: 'my avatar', sub: 'change your avatar\'s features and style', activate: () => openAvatarEditor() },
-    { key: 'set:avatar-show', type: 'icon', icon: 'user', label: 'avatar on spotlight', value: onoff(s.avatar), title: 'show avatar', sub: 'your avatar stands on the spotlight channel', colors: ['#5aa51e', '#2f6f0c'], activate: set({ avatar: !s.avatar }) },
     { key: 'set:sound', type: 'icon', icon: s.sound ? 'sound' : 'mute', label: 'sounds', value: onoff(s.sound), title: 'interface sounds', sub: 'blips and swooshes while you browse', colors: ['#2c8fd6', '#155988'], activate: set({ sound: !s.sound }) },
     { key: 'set:volume', type: 'icon', icon: 'volume', label: 'volume', value: `${s.volume}%`, title: 'sound volume', sub: 'loudness of the interface sounds', colors: ['#1aa3a3', '#0d6464'], activate: set({ volume: VOLUMES[(VOLUMES.indexOf(s.volume) + 1) % VOLUMES.length] || 60 }) },
     { key: 'set:intro', type: 'icon', icon: 'sparkle', label: 'startup intro', value: onoff(s.intro), title: 'startup intro', sub: 'play the boot animation when nostalgiaconsole opens', colors: ['#d9a400', '#8d6900'], activate: set({ intro: !s.intro }) },
@@ -287,40 +286,98 @@ function steamTiles() {
   return tiles;
 }
 
+// ---------- pivots (the Metro-style dashboard) ----------
+// Each pivot is a grid three tiles tall. Tiles have a column/row and a
+// size in grid units; pivots sit side by side and scroll horizontally.
+
+const ROWS = 3;
+
+// Column-major flow: fill each column top to bottom, big tiles first fit.
+function flow(tiles, startCol = 0) {
+  const used = new Set();
+  const free = (c, r, w, h) => {
+    if (r + h > ROWS) return false;
+    for (let i = 0; i < w; i++) for (let j = 0; j < h; j++) if (used.has((c + i) + ':' + (r + j))) return false;
+    return true;
+  };
+  for (const t of tiles) {
+    const w = t.w || 1;
+    const h = t.h || 1;
+    for (let c = startCol; ; c++) {
+      let placed = false;
+      for (let r = 0; r < ROWS; r++) {
+        if (free(c, r, w, h)) {
+          Object.assign(t, { c, r, w, h });
+          for (let i = 0; i < w; i++) for (let j = 0; j < h; j++) used.add((c + i) + ':' + (r + j));
+          placed = true;
+          break;
+        }
+      }
+      if (placed) break;
+    }
+  }
+  return tiles;
+}
+
+function pinsTile() {
+  const n = state.settings.pinned.length;
+  return { key: 'pins', type: 'icon', icon: 'pin', label: 'my pins', value: n ? `${n} pinned` : 'press y on a game to pin it', title: 'my pins',
+    activate: () => openLibrary({ title: 'my pins', filter: (g) => isPinned(g) }) };
+}
+
+function recentTile() {
+  return { key: 'recent', type: 'icon', icon: 'clock', label: 'recent', value: '', title: 'recent',
+    activate: () => openLibrary({ title: 'recent', filter: (g) => g.lastPlayed > 0, sort: 0 }) };
+}
+
+function avatarTile() {
+  return { key: 'avatar', type: 'avatar', label: 'my avatar', value: 'change your look', title: 'my avatar', activate: () => openAvatarEditor() };
+}
+
+function homePivot() {
+  const recent = state.all.filter((g) => g.lastPlayed > 0).sort(byRecent);
+  const pinned = state.settings.pinned.map((id) => state.byId.get(id)).filter(Boolean);
+  const pool = [...new Set(recent.concat(pinned, sorted(state.all, 'az')))];
+  const [last, hero, a, b] = [pool[0], pool[0], pool[1], pool[2]];
+  const tiles = [];
+  const at = (t, c, r, w = 1, h = 1) => tiles.push(Object.assign(t, { c, r, w, h }));
+  if (last) at(gameTile(last, { caption: `play ${last.name}`, activate: () => launch(last) }), 0, 0);
+  else at({ key: 'empty', type: 'icon', icon: 'controller', label: 'no games yet', value: state.lib.root ? 'install a game in steam' : 'steam was not found', title: 'no games', activate: () => openSteam('storefront') }, 0, 0);
+  at(pinsTile(), 0, 1);
+  at(recentTile(), 0, 2);
+  if (hero) at(gameTile(hero, { hero: true, caption: hero.lastPlayed ? `continue ${hero.name}` : hero.name }), 1, 0, 2, 2);
+  else at(libraryTile(), 1, 0, 2, 2);
+  if (a) at(gameTile(a), 1, 2);
+  if (b) at(gameTile(b), 2, 2);
+  at(libraryTile(), 3, 0);
+  const stream = state.streams[0];
+  if (stream) at(streamTile(stream), 3, 1);
+  else at({ key: 'home:store', type: 'icon', icon: 'store', label: 'store', value: 'steam store', title: 'store', activate: () => openSteam('storefront') }, 3, 1);
+  at(avatarTile(), 3, 2);
+  return { key: 'home', title: 'home', tiles };
+}
+
 function buildChannels() {
   indexLibrary();
-  const { settings, lib } = state;
-  const pinned = settings.pinned.map((id) => state.byId.get(id)).filter(Boolean);
-  const recent = state.all.filter((g) => g.lastPlayed > 0 && !isPinned(g)).sort(byRecent);
-  let spot = pinned.concat(recent).slice(0, 8);
-  if (!spot.length) spot = sorted(state.all, 'az').slice(0, 6);
-  const channels = [];
-
-  const spotTiles = spot.map((g, i) => (g.kind === 'moonlight' ? streamTile(g) : gameTile(g, { hero: i === 0 })));
-  if (state.all.length) spotTiles.push(libraryTile());
-  else {
-    spotTiles.push({
-      key: 'empty', type: 'icon', icon: 'controller', label: 'no games yet', value: '',
-      title: lib.root ? 'no installed games found' : 'steam was not found',
-      sub: lib.root ? 'install a game in steam and it shows up here' : 'install steam, or start nostalgiaconsole with --steam-root=<folder>',
-      colors: ['#6d7a84', '#3d474e'], activate: () => openSteam('storefront'),
-    });
-  }
-  channels.push({ key: 'spotlight', title: 'spotlight', tiles: spotTiles });
-
+  const { lib } = state;
+  const pivots = [homePivot()];
   if (state.steamGames.length) {
-    const mine = sorted(state.steamGames, 'recent').slice(0, 30).map((g) => gameTile(g));
-    mine.push(libraryTile());
-    channels.push({ key: 'games', title: 'my games', tiles: mine });
+    const lt = libraryTile();
+    lt.w = 2; lt.h = 2;
+    pivots.push({ key: 'games', title: 'games', tiles: flow([lt, ...sorted(state.steamGames, 'recent').slice(0, 40).map((g) => gameTile(g))]) });
   }
-  if (lib.shortcuts.length) {
-    channels.push({ key: 'apps', title: 'apps & emulators', tiles: sorted(lib.shortcuts, 'recent').map((g) => gameTile(g)) });
-  }
+  if (lib.shortcuts.length) pivots.push({ key: 'apps', title: 'apps', tiles: flow(sorted(lib.shortcuts, 'recent').map((g) => gameTile(g))) });
   const streaming = streamingChannel();
-  if (streaming) channels.push(streaming);
-  channels.push({ key: 'steam', title: 'my steam', tiles: steamTiles() });
-  channels.push({ key: 'settings', title: 'settings', tiles: settingTiles() });
-  return channels;
+  if (streaming) {
+    if (streaming.tiles[0] && streaming.tiles[0].type === 'stream') { streaming.tiles[0].w = 2; streaming.tiles[0].h = 2; }
+    pivots.push({ ...streaming, tiles: flow(streaming.tiles) });
+  }
+  const st = steamTiles();
+  if (st[0] && st[0].type === 'profile') { st[0].w = 2; st[0].h = 2; }
+  st.splice(1, 0, avatarTile());
+  pivots.push({ key: 'steam', title: 'steam', tiles: flow(st) });
+  pivots.push({ key: 'settings', title: 'settings', tiles: flow(settingTiles()) });
+  return pivots;
 }
 
 function displayName() {
@@ -380,41 +437,38 @@ function focusIndex(ch) {
   return Math.max(0, Math.min(ch.tiles.length - 1, i));
 }
 
+function caption(t) {
+  const main = t.caption || t.label || t.title;
+  const sub = t.type === 'icon' || t.type === 'avatar' ? t.value : '';
+  return `<div class="t-cap"><b>${esc(main)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div>`;
+}
+
 function tileEl(t) {
-  const e = el('div', `tile t-${t.type}`);
+  const e = el('div', `tile t-${t.type}` + (t.w > 1 || t.h > 1 ? ' big' : ''));
   e.dataset.key = t.key;
-  if (t.type === 'stream' && t.game.boxart) {
-    e.append(artEl(t.game, ['boxart']));
-    e.append(el('div', 'badge kind', 'stream'));
-    if (isPinned(t.game)) e.append(el('div', 'badge pin', icon('pin')));
-  } else if (t.type === 'stream') {
-    e.style.setProperty('--c1', t.colors[0]);
-    e.style.setProperty('--c2', t.colors[1]);
-    e.innerHTML = `${icon(t.icon, 'tile-ico')}<div class="tile-label"><b>${esc(t.title)}</b><span>${esc(t.game.hostName)}</span></div>`;
-    e.append(el('div', 'badge kind', 'stream'));
-    if (isPinned(t.game)) e.append(el('div', 'badge pin', icon('pin')));
-  } else if (t.type === 'game') {
-    e.append(artEl(t.game, ['header', 'portrait']));
+  if (t.type === 'game') {
+    e.append(artEl(t.game, t.hero ? ['hero', 'header'] : ['header', 'portrait']));
+    if (t.hero) e.classList.add('hero');
     if (isPinned(t.game)) e.append(el('div', 'badge pin', icon('pin')));
     if (t.game.kind === 'shortcut') e.append(el('div', 'badge kind', 'app'));
+  } else if (t.type === 'stream' && t.game.boxart) {
+    e.append(artEl(t.game, ['boxart']));
+    e.append(el('div', 'badge kind', 'stream'));
   } else if (t.type === 'avatar') {
-    e.style.setProperty('--c1', '#9fd85f');
-    e.style.setProperty('--c2', '#3f8f0e');
-    e.append(el('div', 'avatar-tile', avatarPic(look(), 'full', 256)));
-    e.append(el('div', 'tile-label', `<b>${esc(t.label)}</b><span>${esc(t.value)}</span>`));
+    e.append(el('div', 'avatar-tile', avatarPic(look(), 'full', 320, 'av-full')));
   } else if (t.type === 'profile') {
-    const u = state.lib.user;
-    e.style.setProperty('--c1', '#3d4a52');
-    e.style.setProperty('--c2', '#1b2328');
-    e.append(el('div', 'profile-pic', ''));
-    fillGamerpic($('.profile-pic', e), u);
-    e.append(el('div', 'tile-label', `<b>${esc(displayName())}</b><span>${gamesLine()}</span>`));
+    e.append(el('div', 'avatar-tile', avatarPic(look(), 'full', 320, 'av-full')));
+    const pic = el('div', 'profile-pic', '');
+    fillGamerpic(pic, state.lib.user);
+    e.append(pic);
+    t.caption = displayName();
+    t.value = gamesLine();
+    e.classList.add('t-avatar');
   } else {
-    e.style.setProperty('--c1', t.colors[0]);
-    e.style.setProperty('--c2', t.colors[1]);
-    e.innerHTML = `${icon(t.icon, 'tile-ico')}<div class="tile-label"><b>${esc(t.label)}</b>${t.value ? `<span>${esc(t.value)}</span>` : ''}</div>`;
+    e.innerHTML = icon(t.icon || 'grid', 'tile-ico');
+    if (t.type === 'stream') e.append(el('div', 'badge kind', 'stream'));
   }
-  e.append(el('div', 'gloss'));
+  e.insertAdjacentHTML('beforeend', caption(t.type === 'profile' ? { ...t, type: 'avatar' } : t));
   return e;
 }
 
@@ -429,27 +483,29 @@ function totalHours() {
 
 function renderDash() {
   dash.innerHTML = '';
-  state.channels.forEach((ch, ci) => {
-    const sec = el('section', 'channel');
-    sec.dataset.i = ci;
-    sec.append(el('h2', 'ch-title', esc(ch.title)));
-    const row = el('div', 'row');
-    ch.tiles.forEach((t, ti) => {
+  const head = el('div', 'pv-head');
+  const strip = el('div', 'pv-strip');
+  state.channels.forEach((pv, pi) => {
+    const lab = el('div', 'pv-label', esc(pv.title));
+    lab.addEventListener('click', () => { if (!state.overlays.length && pi !== state.ch) { state.ch = pi; sound.play('channel'); layout(); } });
+    head.append(lab);
+    pv.tiles.forEach((t, ti) => {
       const te = tileEl(t);
-      te.addEventListener('click', () => clickTile(ci, ti));
-      row.append(te);
+      te.dataset.p = pi;
+      te.dataset.t = ti;
+      te.addEventListener('click', () => clickTile(pi, ti));
+      strip.append(te);
     });
-    sec.append(row, el('div', 'caption'));
-    dash.append(sec);
   });
+  dash.append(head, strip);
   layout();
 }
 
-function clickTile(ci, ti) {
+function clickTile(pi, ti) {
   if (state.overlays.length) return;
-  if (ci === state.ch && focusIndex(state.channels[ci]) === ti) { activateTile(); return; }
-  state.ch = ci;
-  state.focus[state.channels[ci].key] = ti;
+  if (pi === state.ch && focusIndex(state.channels[pi]) === ti) { activateTile(); return; }
+  state.ch = pi;
+  state.focus[state.channels[pi].key] = ti;
   sound.play('move');
   layout();
 }
@@ -457,103 +513,70 @@ function clickTile(ci, ti) {
 function metrics() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const tw = Math.max(220, Math.min(vw * 0.34, vh * 0.6, 640));
-  const th = tw * 9 / 16;
-  return { vw, vh, tw, th, x0: Math.max(40, vw * 0.09), top: Math.max(150, vh * 0.25) };
+  const g = Math.max(6, Math.round(vh * 0.012));
+  const gridH = Math.min(vh * 0.6, vw * 0.36);
+  const v = (gridH - 2 * g) / ROWS;
+  const u = v * 1.32;
+  return { vw, vh, g, u, v, x0: Math.max(40, vw * 0.1), top: Math.max(120, vh * 0.2), gap: u * 0.75 };
 }
 
-// compact: the spotlight row makes room for the avatar on the right.
-function tilePlacement(d, m, compact = false) {
-  if (d === 0) return { x: m.x0, y: 0, s: 1, o: 1, z: 100 };
-  if (d < 0) return { x: m.x0 - (m.tw + 60) * -d, y: 0, s: 1, o: 0, z: 100 + d };
-  const step = compact ? 0.44 : 0.6;
-  const last = compact ? 4 : 6;
-  let x = m.x0 + m.tw + 34;
-  let s = 0.66;
-  for (let k = 1; k < d; k++) {
-    x += m.tw * s * step;
-    s *= 0.84;
+// Pivot start columns in strip pixels.
+function pivotX(m) {
+  const xs = [];
+  let x = 0;
+  for (const pv of state.channels) {
+    xs.push(x);
+    const cols = Math.max(1, ...pv.tiles.map((t) => t.c + t.w));
+    x += cols * (m.u + m.g) - m.g + m.gap;
   }
-  return { x, y: (m.th - m.th * s) / 2 - d * 5, s, o: d > last ? 0 : 1 - (d - 1) * 0.13, z: 100 - d };
+  return xs;
 }
 
-function avatarShown() {
-  const ch = state.channels[state.ch];
-  return state.settings.avatar && ch && ch.key === 'spotlight' && !state.overlays.length;
+function tileRect(t, m, px) {
+  return {
+    x: px + t.c * (m.u + m.g),
+    y: t.r * (m.v + m.g),
+    w: t.w * m.u + (t.w - 1) * m.g,
+    h: t.h * m.v + (t.h - 1) * m.g,
+  };
 }
 
-function placeAvatar(m) {
-  const av = $('#avatar');
-  const h = Math.min(m.vh * 0.46, m.th * 1.7);
-  const w = h / 2;
-  av.style.height = h + 'px';
-  av.style.width = w + 'px';
-  av.style.left = (m.vw - w - Math.max(24, m.vw * 0.035)) + 'px';
-  av.style.top = (m.top + m.th + 64 - h) + 'px';
-  av.classList.toggle('show', avatarShown());
-  if (dashAvatar) { if (avatarShown()) dashAvatar.start(); else dashAvatar.stop(); }
-}
-
-function look() {
-  return normalizeLook(state.settings.avatarLook);
-}
-
-function dressAvatar() {
-  if (GL) {
-    if (!dashAvatar) {
-      const c = document.createElement('canvas');
-      $('#avatar').replaceChildren(c);
-      dashAvatar = new AvatarView(c);
-    }
-    dashAvatar.setLook(look());
-  } else {
-    $('#avatar').innerHTML = avatarSvg(look());
-  }
-  for (const e of document.querySelectorAll('.tile .avatar-tile')) e.innerHTML = avatarPic(look(), 'full', 256);
-}
-
-function wave() {
-  if (dashAvatar) { dashAvatar.wave(); return; }
-  const av = $('#avatar');
-  av.classList.remove('wave');
-  void av.offsetWidth;
-  av.classList.add('wave');
-  setTimeout(() => av.classList.remove('wave'), 1900);
-}
+function avatarShown() { return false; }
 
 function layout() {
   const m = metrics();
-  dash.style.setProperty('--tw', m.tw + 'px');
-  dash.style.setProperty('--th', m.th + 'px');
-  dash.style.setProperty('--x0', m.x0 + 'px');
-  const nextY = m.top + m.th + Math.max(130, m.vh * 0.19);
-  [...dash.children].forEach((sec, ci) => {
-    const ch = state.channels[ci];
-    const rel = ci - state.ch;
-    let y; let s; let o;
-    if (rel === 0) { y = m.top; s = 1; o = 1; }
-    else if (rel < 0) { y = m.top - m.th - 160; s = 0.8; o = 0; }
-    else if (rel === 1) { y = nextY; s = 0.45; o = 0.62; }
-    else { y = nextY + m.th * 0.45 + 40 + (rel - 2) * 36; s = 0.45; o = y > m.vh - 120 ? 0 : 0.5; }
-    sec.style.transform = `translate3d(0, ${y}px, 0) scale(${s})`;
-    sec.style.opacity = o;
-    sec.classList.toggle('current', rel === 0);
-    sec.classList.toggle('far', rel >= 2);
-    sec.classList.toggle('gone', rel < 0);
-    const fi = focusIndex(ch);
-    const compact = state.settings.avatar && ch.key === 'spotlight';
-    [...sec.querySelector('.row').children].forEach((te, ti) => {
-      const p = tilePlacement(ti - fi, m, compact);
-      te.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) scale(${p.s})`;
-      te.style.opacity = p.o;
-      te.style.zIndex = p.z;
-      te.classList.toggle('focused', ti === fi);
-    });
-    const t = ch.tiles[fi];
-    const cap = sec.querySelector('.caption');
-    cap.innerHTML = t ? `<div class="cap-title">${esc(t.title)}</div><div class="cap-sub">${esc(t.sub || '')}</div>` : '';
-  });
-  placeAvatar(m);
+  const xs = pivotX(m);
+  const pv = state.channels[state.ch];
+  const fi = focusIndex(pv);
+  const ft = pv.tiles[fi];
+  const fr = ft ? tileRect(ft, m, xs[state.ch]) : { x: xs[state.ch], w: 0 };
+  let scroll = xs[state.ch] - m.x0;
+  const right = m.vw - m.x0 * 0.55;
+  if (fr.x + fr.w - scroll > right) scroll = fr.x + fr.w - right;
+  dash.style.setProperty('--u', m.u + 'px');
+  dash.style.setProperty('--v', m.v + 'px');
+  const strip = dash.querySelector('.pv-strip');
+  strip.style.top = m.top + 'px';
+  strip.style.height = (ROWS * m.v + 2 * m.g) + 'px';
+  strip.style.transform = `translate3d(${-scroll}px, 0, 0)`;
+  for (const te of strip.children) {
+    const pi = +te.dataset.p;
+    const t = state.channels[pi].tiles[+te.dataset.t];
+    const r = tileRect(t, m, xs[pi]);
+    te.style.left = r.x + 'px';
+    te.style.top = r.y + 'px';
+    te.style.width = r.w + 'px';
+    te.style.height = r.h + 'px';
+    te.classList.toggle('focused', pi === state.ch && +te.dataset.t === fi);
+    te.classList.toggle('other', pi !== state.ch);
+  }
+  // Labels: the current one lines up with the grid's left edge.
+  const head = dash.querySelector('.pv-head');
+  head.style.top = (m.top - Math.max(40, m.vh * 0.085)) + 'px';
+  const labels = [...head.children];
+  labels.forEach((l, i) => l.classList.toggle('on', i === state.ch));
+  const cur = labels[state.ch];
+  if (cur) head.style.transform = `translate3d(${m.x0 - cur.offsetLeft}px, 0, 0)`;
   renderHints();
 }
 
@@ -565,27 +588,62 @@ function currentTile() {
 function activateTile() {
   const t = currentTile();
   if (!t) return;
+  if (t.activate) { sound.play('select'); t.activate(); return; }
   if (t.type === 'game') { sound.play('open'); openDetail(t.game); return; }
-  if (t.type === 'stream') { startStream(t.game); return; }
-  sound.play('select');
-  t.activate();
+  if (t.type === 'stream') { startStream(t.game); }
 }
 
-function moveFocus(delta) {
-  const ch = state.channels[state.ch];
-  const i = focusIndex(ch);
-  const n = Math.max(0, Math.min(ch.tiles.length - 1, i + delta));
-  if (n === i) return false;
-  state.focus[ch.key] = n;
-  sound.play('move');
-  layout();
-  return true;
+// Spatial move inside the pivot; off the left/right edge goes to the
+// neighbouring pivot, entering at the closest tile.
+function move(dir) {
+  const pv = state.channels[state.ch];
+  const cur = pv.tiles[focusIndex(pv)];
+  if (!cur) return;
+  const cx = cur.c + cur.w / 2;
+  const cy = cur.r + cur.h / 2;
+  let best = -1;
+  let bestScore = Infinity;
+  pv.tiles.forEach((t, i) => {
+    if (t === cur) return;
+    const tx = t.c + t.w / 2;
+    const ty = t.r + t.h / 2;
+    const dx = tx - cx;
+    const dy = ty - cy;
+    const ahead = { left: -dx, right: dx, up: -dy, down: dy }[dir];
+    if (ahead <= 0.01) return;
+    // Must overlap on the other axis, or be close to it.
+    const across = dir === 'left' || dir === 'right'
+      ? Math.max(0, Math.abs(dy) - (t.h + cur.h) / 2 + 0.01)
+      : Math.max(0, Math.abs(dx) - (t.w + cur.w) / 2 + 0.01);
+    const score = ahead + across * 3;
+    if (score < bestScore) { bestScore = score; best = i; }
+  });
+  if (best >= 0) {
+    state.focus[pv.key] = best;
+    sound.play('move');
+    layout();
+    return;
+  }
+  if (dir === 'left' || dir === 'right') switchPivot(dir === 'left' ? -1 : 1, cy);
 }
 
-function moveChannel(delta) {
-  const n = Math.max(0, Math.min(state.channels.length - 1, state.ch + delta));
-  if (n === state.ch) return;
+function switchPivot(delta, row = null) {
+  const n = state.ch + delta;
+  if (n < 0 || n >= state.channels.length) return;
   state.ch = n;
+  const pv = state.channels[n];
+  if (row !== null) {
+    // Enter from the near edge, on the closest row.
+    const edge = delta > 0 ? Math.min(...pv.tiles.map((t) => t.c)) : Math.max(...pv.tiles.map((t) => t.c + t.w));
+    let best = 0;
+    let bestScore = Infinity;
+    pv.tiles.forEach((t, i) => {
+      const ex = delta > 0 ? t.c - edge : edge - (t.c + t.w);
+      const score = ex * 3 + Math.abs(t.r + t.h / 2 - row);
+      if (score < bestScore) { bestScore = score; best = i; }
+    });
+    state.focus[pv.key] = best;
+  }
   sound.play('channel');
   layout();
 }
@@ -593,17 +651,12 @@ function moveChannel(delta) {
 function dashHandle(a) {
   const t = currentTile();
   switch (a) {
-    case 'left': moveFocus(-1); break;
-    case 'right': moveFocus(1); break;
-    case 'up': moveChannel(-1); break;
-    case 'down': moveChannel(1); break;
-    case 'lb': moveFocus(-5); break;
-    case 'rb': moveFocus(5); break;
-    case 'lt': moveFocus(-999); break;
-    case 'rt': moveFocus(999); break;
+    case 'left': case 'right': case 'up': case 'down': move(a); break;
+    case 'lb': switchPivot(-1); break;
+    case 'rb': switchPivot(1); break;
     case 'a': activateTile(); break;
     case 'x': if (t && t.type === 'game') launch(t.game); else if (t && t.type === 'stream') startStream(t.game); break;
-    case 'y': if (t && (t.type === 'game' || t.type === 'stream')) togglePin(t.game); else if (state.all.length) { sound.play('open'); openLibrary(); } break;
+    case 'y': if (t && (t.type === 'game' || t.type === 'stream')) togglePin(t.game); break;
     case 'b':
       if (state.ch !== 0 || focusIndex(state.channels[0]) !== 0) {
         state.ch = 0;
@@ -620,15 +673,14 @@ function dashHandle(a) {
 
 function dashHints() {
   const t = currentTile();
-  const h = [['a', t && t.type === 'game' ? 'details' : t && t.type === 'stream' ? 'stream' : 'select']];
-  if (t && t.type === 'game') h.push(['x', 'play'], ['y', isPinned(t.game) ? 'unpin' : 'pin']);
+  const h = [['a', 'select']];
+  if (t && t.type === 'game') h.push(['x', 'play'], ['y', isPinned(t.game) ? 'unpin' : 'pin'], ['start', 'details']);
   else if (t && t.type === 'stream') h.push(['y', isPinned(t.game) ? 'unpin' : 'pin']);
-  else if (state.all.length) h.push(['y', 'game library']);
-  h.push(['view', 'guide']);
+  h.push(['lb', 'switch']);
   return h;
 }
 
-// Keeps focus on the same tile (by key) when channels are rebuilt.
+// Keeps focus on the same tile (by key) when pivots are rebuilt.
 function rebuild() {
   const keepCh = state.channels[state.ch] && state.channels[state.ch].key;
   const keepTiles = {};
@@ -645,6 +697,16 @@ function rebuild() {
   }
   renderDash();
   renderGamercard();
+}
+
+function dressAvatar() {
+  for (const e of document.querySelectorAll('.tile .avatar-tile')) e.innerHTML = avatarPic(look(), 'full', 320, 'av-full');
+}
+
+function wave() {}
+
+function look() {
+  return normalizeLook(state.settings.avatarLook);
 }
 
 // ---------- gamercard / clock ----------
@@ -793,18 +855,18 @@ function openDetail(g) {
   });
 }
 
-function openLibrary() {
+function openLibrary({ title = 'game library', filter = null, sort: startSort = null } = {}) {
   const root = el('div', 'overlay library');
   const panel = el('div', 'lib-panel');
   root.append(panel);
-  const head = el('div', 'lib-head', '<h1>game library</h1>');
+  const head = el('div', 'lib-head', `<h1>${esc(title)}</h1>`);
   const tabs = el('div', 'lib-tabs');
   head.append(tabs);
   const grid = el('div', 'lib-grid');
   const cap = el('div', 'lib-caption');
   panel.append(head, grid, cap);
 
-  let sort = 0;
+  let sort = startSort ?? 0;
   let i = 0;
   let items = [];
   let cards = [];
@@ -815,7 +877,7 @@ function openLibrary() {
 
   function renderGrid() {
     const keep = items[i] && items[i].id;
-    items = sorted(state.all, SORTS[sort][0]);
+    items = sorted(filter ? state.all.concat(state.streams).filter(filter) : state.all, SORTS[sort][0]);
     grid.innerHTML = '';
     cards = items.map((g, k) => {
       const c = el('div', 'card');
@@ -909,7 +971,7 @@ function openGuide() {
   const ml = state.lib.moonlight;
   const tabs = [
     { icon: 'controller', label: 'home', items: () => [
-      { icon: 'controller', label: 'dashboard home', run: goChannel('spotlight') },
+      { icon: 'controller', label: 'dashboard home', run: goChannel('home') },
       { icon: 'grid', label: 'game library', note: `${state.all.length}`, run: () => { closeAll(); openLibrary(); } },
       { icon: 'user', label: 'my avatar', run: () => { closeAll(); openAvatarEditor(); } },
       { icon: 'bigpicture', label: 'steam big picture', run: () => { closeAll(); openSteam('bigpicture'); } },
@@ -1129,8 +1191,8 @@ let wheelAt = 0;
 window.addEventListener('wheel', (e) => {
   if (state.overlays.length || Date.now() - wheelAt < 220) return;
   wheelAt = Date.now();
-  if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) moveFocus(e.deltaX > 0 ? 1 : -1);
-  else moveChannel(e.deltaY > 0 ? 1 : -1);
+  const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  switchPivot(d > 0 ? 1 : -1);
 }, { passive: true });
 
 let idleTimer = null;
