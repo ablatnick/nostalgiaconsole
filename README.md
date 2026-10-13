@@ -1,8 +1,10 @@
 # NostalgiaConsole
 
-A full-screen dashboard in the style of the 2011 Xbox 360 dashboard for
+A full screen dashboard in the style of the 2011 Xbox 360 dashboard for
 your Steam library. It runs on Linux, Windows and the Steam Deck, and it
-also lists games you can stream from other PCs with Moonlight.
+also lists games you can stream from other PCs with Moonlight. Originally designed 
+to turn Moonlight into a more console feeling experience without relying on Steam 
+big picture.
 
 
 ## Screenshots
