@@ -16,6 +16,8 @@ more features will be added!!!
 
 More in [Screenshots](#screenshots).
 
+> ❤️ Enjoying NostalgiaConsole? You can [support it on Venmo (@ablatnick)](https://venmo.com/u/ablatnick).
+
 ## Quick start
 
 1. Download the latest file for your system from
