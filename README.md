@@ -4,7 +4,9 @@ A full screen launcher for your Steam library in the style of the 2011
 Xbox 360 dashboard: tiles, pivots, a guide button, 3D avatars and
 gamerscore. It runs on Linux, Windows and the Steam Deck, and also lists
 games you can stream from your other PCs with Moonlight, so a TV or a
-Steam Deck feels like a console instead of Steam Big Picture.
+Steam Deck feels like a console instead of Steam Big Picture. This is also 
+a work in progress. If this project does well other console styles and
+more features will be added!!!
 
 ![Home pivot](docs/screenshots/home.png)
 
