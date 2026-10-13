@@ -23,20 +23,21 @@ export const PARTS = [
   { key: 'mouth', group: 'my features', label: 'mouth', values: ['smile', 'grin', 'smirk', 'open', 'flat'], face: true },
   { key: 'facialHair', group: 'my features', label: 'facial hair', values: ['none', 'stubble', 'mustache', 'goatee', 'beard'], face: true },
   { key: 'glasses', group: 'my style', label: 'glasses', values: ['none', 'round', 'square', 'shades', 'visor'], face: true },
-  { key: 'hat', group: 'my style', label: 'hat', values: ['none', 'cap', 'beanie', 'headphones', 'tophat', 'crown'], face: true },
+  { key: 'hat', group: 'my style', label: 'hat', values: ['none', 'cap', 'beanie', 'headphones', 'tophat', 'crown', 'helmet'], face: true },
   { key: 'hatColor', group: 'my style', label: 'hat color', colors: C.cloth, face: true },
   { key: 'top', group: 'my style', label: 'top', values: ['hoodie', 'tee', 'jacket', 'jersey', 'sweater'] },
   { key: 'topColor', group: 'my style', label: 'top color', colors: C.cloth },
   { key: 'bottoms', group: 'my style', label: 'bottoms', values: ['jeans', 'cargo', 'shorts', 'skirt'] },
   { key: 'bottomsColor', group: 'my style', label: 'bottoms color', colors: C.cloth.slice().reverse() },
   { key: 'shoes', group: 'my style', label: 'shoes', colors: C.shoes },
-  { key: 'costume', group: 'costumes', label: 'costume', values: ['none', 'robot', 'astronaut', 'pilot', 'trooper', 'robe', 'knight', 'ninja', 'wizard', 'alien'] },
+  { key: 'costume', group: 'costumes', label: 'costume', values: ['none', 'armor', 'hunter', 'hero', 'ninja', 'fox', 'cat', 'bear', 'robot', 'astronaut', 'pilot', 'trooper', 'robe', 'knight', 'wizard', 'alien'] },
+  { key: 'costumeColor', group: 'costumes', label: 'costume color', colors: ['default', '#55663a', '#3f9a2a', '#c4282d', '#2c7fd0', '#f0b000', '#e0632a', '#7d58c6', '#1c1d20', '#f2f2f2', '#8d9196', '#1aa3a3'] },
 ];
 
 export const DEFAULT_LOOK = {
   build: 'regular', skin: C.skin[1], hairStyle: 'short', hairColor: C.hair[2], eyes: 'round', eyeColor: C.eyes[0],
   brows: 'arched', mouth: 'smile', facialHair: 'none', glasses: 'none', hat: 'none', hatColor: C.cloth[7],
-  top: 'hoodie', topColor: C.cloth[0], bottoms: 'jeans', bottomsColor: C.cloth[11], shoes: C.shoes[0], costume: 'none',
+  top: 'hoodie', topColor: C.cloth[0], bottoms: 'jeans', bottomsColor: C.cloth[11], shoes: C.shoes[0], costume: 'none', costumeColor: 'default',
 };
 
 function choices(p) {

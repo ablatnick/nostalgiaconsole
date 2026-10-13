@@ -522,15 +522,16 @@ function clickTile(pi, ti) {
 function metrics() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const g = Math.max(2, Math.round(vh * 0.004));
-  const gridH = Math.min(vh * 0.46, vw * 0.27);
+  // Tile size from 0.5.0 (readable on a TV), with the console's tight gaps.
+  const g = Math.max(3, Math.round(vh * 0.005));
+  const gridH = Math.min(vh * 0.6, vw * 0.36);
   const v = (gridH - 2 * g) / ROWS;
   const u = v * 1.32;
   const homeCols = 4;
   const homeW = homeCols * u + (homeCols - 1) * g;
   const x0 = Math.max(40, (vw - homeW) / 2);
   // Neighbouring pivots only peek in from the screen edges.
-  return { vw, vh, g, u, v, x0, top: Math.max(130, vh * 0.25), gap: Math.max(u * 0.62, x0 - u * 0.45) };
+  return { vw, vh, g, u, v, x0, top: Math.max(120, vh * 0.2), gap: Math.max(u * 0.62, x0 - u * 0.45) };
 }
 
 // Pivot start columns in strip pixels.
@@ -1085,7 +1086,7 @@ function openAvatarEditor() {
   function drawFigure() {
     if (view3d) {
       view3d.setLook(cur);
-      view3d.setView(PARTS[cat].face ? 'head' : 'full');
+      view3d.setView(PARTS[cat].face ? 'bust' : 'full');
       return;
     }
     figure.innerHTML = avatarSvg(cur);
@@ -1100,8 +1101,9 @@ function openAvatarEditor() {
     list.forEach((v, k) => {
       const card = el('div', 'aved-opt' + (k === at ? ' on' : '') + (p.colors ? ' swatch' : ''));
       if (p.colors) card.append(el('i', '', ''));
-      else card.innerHTML = avatarPic({ ...cur, [p.key]: v }, p.face ? 'head' : 'full', 160, 'aved-mini');
-      if (p.colors) card.querySelector('i').style.background = v;
+      else card.innerHTML = avatarPic({ ...cur, [p.key]: v }, p.face ? 'bust' : 'full', 160, 'aved-mini');
+      if (p.colors && v === 'default') { card.classList.add('default'); card.querySelector('i').textContent = 'default'; }
+      else if (p.colors) card.querySelector('i').style.background = v;
       card.addEventListener('click', () => { choose(k); sound.play('move'); });
       strip.append(card);
     });
@@ -1230,7 +1232,7 @@ function avatarShot() {
   document.body.append(box);
   let lookIn = {};
   try { lookIn = JSON.parse(params.get('look') || '{}'); } catch { /* default look */ }
-  const v = new AvatarView(c, { animate: false });
+  const v = new AvatarView(c, { animate: false, view: lookIn.view === 'head' ? 'head' : 'full' });
   v.setLook(lookIn);
   v.render();
 }
