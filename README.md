@@ -1,6 +1,6 @@
 # NostalgiaConsole
 
-A full-screen dashboard in the style of the 2008 "New Xbox Experience" for
+A full-screen dashboard in the style of the 2011 Xbox 360 dashboard for
 your Steam library. It runs on Linux, Windows and the Steam Deck, and it
 also lists games you can stream from other PCs with Moonlight.
 
@@ -19,19 +19,25 @@ also lists games you can stream from other PCs with Moonlight.
 Screenshots use the test library from `test/make-fixture.js` (rendered with
 `test/shot.sh`).
 
-- **Channels** you scroll up and down: spotlight, my games, apps & emulators,
-  streaming, my steam and settings. Each channel has a row of 3D tiles you
-  scroll left and right.
+## Features
+
+- **Pivots** across the top: search, home, games, apps, streaming, steam
+  and settings, each a grid of tiles three tall. LB/RB switch pivots, and
+  moving off a grid's edge slides into the next one. Home has your last
+  game, pins, recent games, a big "continue" tile and two tiles that cycle
+  through your library.
 - Reads installed Steam games, non-Steam shortcuts, play time and your own
   custom grid art straight from the Steam folder. Missing art comes from
   Steam's CDN.
 - **Game library** grid sorted by recently played, A to Z, most played, or
   size on disk. You can **pin** games to spotlight.
-- An **avatar** that stands on the spotlight channel. Build it in the
+- A 3D **avatar** that stands beside the steam pivot. Build it in the
   **my avatar** editor: body type, skin, hair, eyes, eyebrows, mouth, facial
   hair, glasses, hats and clothes, with a live preview. Y gives you a random
-  avatar. When you have no Steam profile picture, your avatar's head is your
-  gamerpic.
+  avatar. There are costumes too (power armor, bounty hunter, caped hero,
+  animal hoodies, robot, astronaut, knight, wizard and more).
+- **Gamerpics**: your Steam picture, your avatar's head, or any picture you
+  put in the `gamerpics` folder in the user data folder.
 - A **guide** with a gamercard and tabs (home, games, streaming, settings),
   console-style pop-up notifications, synthesized interface sounds, a boot
   animation, and four themes: classic, midnight, ember and arctic.
