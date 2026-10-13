@@ -31,8 +31,8 @@ export default function createNxe(ctx, root) {
 
   function sections() {
     const secs = ctx.catalog();
-    const spot = { key: 'spotlight', title: 'spotlight', icon: 'sparkle', items: ctx.recentItems(10) };
-    return [spot, ...secs];
+    const spot = { key: 'spotlight', title: 'spotlight', icon: 'sparkle', items: ctx.recentItems() };
+    return spot.items.length ? [spot, ...secs] : secs;
   }
 
   function render() {

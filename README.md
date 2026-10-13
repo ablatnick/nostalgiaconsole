@@ -70,7 +70,17 @@ like; they use no console makers' logos, fonts, sounds or artwork.
 - **Jellyfin video**: continue watching, next up, movies and shows, with a
   built-in player that syncs your progress.
 - **Customize**: tile and background colors, tile size (so more fits on
-  screen), text size, which tabs show, and more.
+  screen), text size and which tabs show, in every style. The panel sits at
+  the side so you see each change live.
+- **Quick resume**: "continue …" picks up your last game, or a Jellyfin
+  video if you watched that more recently, in one press.
+- **Sort and filter** the games list in every style from the guide (recent,
+  A to Z, most played, size; pinned, Steam, non-Steam, played, never played).
+- A **first-run setup** (style, colors, name, avatar), a **screensaver**
+  that drifts through your game art after a few idle minutes, **friend
+  alerts** when someone comes online or starts a game, Steam **download
+  progress**, and a **controls** screen that lists every button and lets
+  you remap your controller.
 - The **guide**, console-style notifications, synthesized sounds (or your
   own sound pack), a boot animation and four themes.
 - Controller first; keyboard and mouse work too. Gamepad input is ignored

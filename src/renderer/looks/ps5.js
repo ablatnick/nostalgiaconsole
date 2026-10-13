@@ -28,8 +28,9 @@ export default function createPs5(ctx, root) {
 
   function sections() {
     const list = ctx.catalog();
-    const home = { key: 'home', title: 'home', icon: 'controller', items: ctx.recentItems(14) };
-    return [home, ...list.filter((s) => s.key !== 'search')];
+    const home = { key: 'home', title: 'home', icon: 'controller', items: ctx.recentItems() };
+    const rest = list.filter((s) => s.key !== 'search');
+    return home.items.length ? [home, ...rest] : rest;
   }
 
   function render() {

@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('nostalgia', {
   web: () => ipcRenderer.invoke('web:get'),
   refreshWeb: () => ipcRenderer.invoke('web:refresh'),
   jfShelves: () => ipcRenderer.invoke('jf:shelves'),
+  jfUsers: () => ipcRenderer.invoke('jf:users'),
   jfEpisodes: (id) => ipcRenderer.invoke('jf:episodes', id),
   jfReport: (kind, body) => ipcRenderer.invoke('jf:report', kind, body),
   jfOpenWeb: (id) => ipcRenderer.invoke('jf:openWeb', id),

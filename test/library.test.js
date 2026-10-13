@@ -148,3 +148,33 @@ test('the dashboard style is kept per profile', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('setup, screensaver, sort/filter and controller remapping settings', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const { Settings, sanitize } = require('../src/main/settings');
+  const s = sanitize({ screensaver: 10, dashSort: 'az', dashFilter: 'pinned', friendAlerts: false, padMap: { a: 1, b: 0, x: 99, nope: 3, y: 'two' } });
+  assert.strictEqual(s.screensaver, 10);
+  assert.strictEqual(s.dashSort, 'az');
+  assert.strictEqual(s.dashFilter, 'pinned');
+  assert.strictEqual(s.friendAlerts, false);
+  assert.deepStrictEqual(s.padMap, { a: 1, b: 0 });
+  assert.strictEqual(sanitize({ screensaver: 7, dashSort: 'x', dashFilter: 'y' }).screensaver, 5);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-setup-'));
+  try {
+    // A brand-new install runs setup; settings from an older version don't.
+    assert.strictEqual(new Settings(dir).values.setupDone, false);
+    fs.writeFileSync(path.join(dir, 'settings.json'), JSON.stringify({ theme: 'midnight' }));
+    assert.strictEqual(new Settings(dir).values.setupDone, true);
+    const st = new Settings(dir);
+    st.update({ jellyfinUser: 'ab', dashSort: 'played' });
+    st.createProfile('kid');
+    assert.strictEqual(st.values.jellyfinUser, '');
+    assert.strictEqual(st.values.dashSort, 'recent');
+    st.switchProfile('p1');
+    assert.strictEqual(st.values.jellyfinUser, 'ab');
+    assert.strictEqual(st.values.dashSort, 'played');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

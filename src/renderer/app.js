@@ -1,4 +1,4 @@
-import { startInput } from './input.js';
+import { startInput, setPadMap, buttonOf, captureButton, KEY_NAMES } from './input.js';
 import * as sound from './sound.js';
 import { icon } from './icons.js';
 import { avatarSvg, PARTS, VIEW_HEAD, VIEW_FULL, normalizeLook, randomLook } from './avatar.js';
@@ -45,6 +45,16 @@ const TILE_SIZES = { huge: 1.15, large: 1, medium: 0.85, small: 0.72, tiny: 0.6 
 const TEXT_SIZES = { small: 0.85, normal: 1, large: 1.2 };
 const TAB_NAMES = { search: 'search', games: 'games', apps: 'apps', video: 'video (jellyfin)', streaming: 'streaming (moonlight)', social: 'social (friends)', steam: 'steam' };
 const COUNTS = { recentCount: [0, 3, 6, 9, 12], friendCount: [6, 12, 18, 24, 36] };
+// "show" filter for the games list in every style; settings.js has the keys.
+const DASH_FILTERS = {
+  all: ['everything', () => true],
+  pinned: ['pinned', (g) => isPinned(g)],
+  steam: ['steam games', (g) => g.kind === 'steam'],
+  shortcuts: ['non-steam games', (g) => g.kind === 'shortcut'],
+  played: ['played before', (g) => g.lastPlayed > 0],
+  unplayed: ['never played', (g) => !g.lastPlayed],
+};
+const SCREENSAVER_MIN = [0, 2, 5, 10, 20];
 const SORTS = [
   ['recent', 'recently played'],
   ['az', 'a–z'],
@@ -116,6 +126,8 @@ function bytes(n) {
 }
 
 function gameSub(g) {
+  if (g.downloading) return `downloading${g.progress != null ? ` · ${Math.round(g.progress * 100)}%` : ''}`;
+  if (g.notInstalled) return 'not installed · press a to install';
   const parts = [timeAgo(g.lastPlayed)];
   if (g.playtime) parts.push(hours(g.playtime));
   if (g.needsUpdate) parts.push('update pending');
@@ -268,6 +280,7 @@ function settingTiles() {
   return [
     { key: 'set:theme', type: 'icon', icon: 'palette', label: 'theme', value: s.theme, title: 'theme', sub: 'change the dashboard colors', colors: ['#7d58c6', '#46297f'], activate: set({ theme: next(THEMES, s.theme) }) },
     { key: 'set:customize', type: 'icon', icon: 'grid', label: 'customize', value: 'colors, tabs, tile size', title: 'customize', sub: 'tile and background colors, which tabs show, how big the tiles are', colors: ['#d6469a', '#8a1f5c'], activate: () => openCustomize() },
+    { key: 'set:controls', type: 'icon', icon: 'controller', label: 'controls', value: Object.keys(s.padMap || {}).length ? 'remapped' : 'help and remapping', title: 'controls', sub: 'what every button does, and remap your controller', colors: ['#3d7f2a', '#1f4a14'], activate: () => openControls() },
     { key: 'set:avatar-edit', type: 'avatar', label: 'my avatar', value: 'customize', title: 'my avatar', sub: 'change your avatar\'s features and style', activate: () => openAvatarEditor() },
     { key: 'set:sound', type: 'icon', icon: s.sound ? 'sound' : 'mute', label: 'sounds', value: onoff(s.sound), title: 'interface sounds', sub: 'blips and swooshes while you browse', colors: ['#2c8fd6', '#155988'], activate: set({ sound: !s.sound }) },
     { key: 'set:pack', type: 'icon', icon: 'sound', label: 'sound pack', value: state.packCount ? `${state.packCount} custom sounds` : 'built-in sounds', title: 'sound pack',
@@ -296,6 +309,18 @@ function settingTiles() {
         await loadVideo();
         rebuild();
       } },
+    ...(state.keys && state.keys.jellyfin ? [{ key: 'set:jfuser', type: 'icon', icon: 'user', label: 'jellyfin user', value: s.jellyfinUser || 'first admin', title: 'jellyfin user', sub: 'whose watch history and resume points this profile uses', colors: ['#2b6fd0', '#173f7a'],
+      activate: async () => {
+        const users = await api.jfUsers();
+        if (!users.length) { toast('could not reach jellyfin'); return; }
+        const names = ['', ...users.map((u) => u.name)];
+        const at = names.findIndex((n) => n.toLowerCase() === (s.jellyfinUser || '').toLowerCase());
+        const pick = names[(at + 1) % names.length];
+        await set({ jellyfinUser: pick }, `jellyfin user: ${pick || 'first admin'}`)();
+        state.video = null;
+        await loadVideo();
+        rebuild();
+      } }] : []),
     { key: 'set:profiles', type: 'icon', icon: 'friends', label: 'profiles', value: `${Math.max(1, s.profiles.length)} profile${s.profiles.length > 1 ? 's' : ''}`, title: 'profiles', activate: () => openSignIn() },
     { key: 'set:autostart', type: 'icon', icon: 'power', label: 'start at login', value: onoff(s.autostart), title: 'start at login', activate: set({ autostart: !s.autostart }) },
     { key: 'set:update', type: 'icon', icon: 'refresh', label: 'check for updates', value: '', title: 'updates',
@@ -305,6 +330,8 @@ function settingTiles() {
       } },
     { key: 'set:volume', type: 'icon', icon: 'volume', label: 'volume', value: `${s.volume}%`, title: 'sound volume', sub: 'loudness of the interface sounds', colors: ['#1aa3a3', '#0d6464'], activate: set({ volume: VOLUMES[(VOLUMES.indexOf(s.volume) + 1) % VOLUMES.length] || 60 }) },
     { key: 'set:intro', type: 'icon', icon: 'sparkle', label: 'startup intro', value: onoff(s.intro), title: 'startup intro', sub: 'play the boot animation when nostalgiaconsole opens', colors: ['#d9a400', '#8d6900'], activate: set({ intro: !s.intro }) },
+    { key: 'set:screensaver', type: 'icon', icon: 'image', label: 'screensaver', value: s.screensaver ? `after ${s.screensaver} min` : 'off', title: 'screensaver', sub: 'your game art drifts by when nobody has pressed anything (saves a tv from burn-in)', colors: ['#2a4f7a', '#13283f'], activate: set({ screensaver: next(SCREENSAVER_MIN, s.screensaver) }) },
+    { key: 'set:friendalerts', type: 'icon', icon: 'friends', label: 'friend alerts', value: onoff(s.friendAlerts), title: 'friend alerts', sub: 'a pop-up when a friend comes online or starts a game', colors: ['#f08a00', '#9a5400'], activate: set({ friendAlerts: !s.friendAlerts }) },
     { key: 'set:fullscreen', type: 'icon', icon: 'fullscreen', label: 'full screen', value: onoff(s.fullscreen), title: 'full screen', sub: 'start in full screen (F11 switches any time)', colors: ['#4c6b80', '#28404f'],
       activate: async () => {
         const fs = await api.toggleFullscreen();
@@ -321,6 +348,7 @@ function settingTiles() {
         rebuild();
         toast(`library refreshed · ${state.all.length} games`);
       } },
+    { key: 'set:setup', type: 'icon', icon: 'sparkle', label: 'run setup again', value: '', title: 'setup', sub: 'the first-run walkthrough: style, colors, name and avatar', colors: ['#7d58c6', '#46297f'], activate: () => openSetup() },
     { key: 'set:quit', type: 'icon', icon: 'power', label: 'quit', value: '', title: 'quit nostalgiaconsole', sub: state.lib.steamDeck ? 'back to steam' : 'close the dashboard', colors: ['#c4282d', '#7a1115'], activate: () => api.quit() },
   ];
 }
@@ -335,10 +363,15 @@ function steamTiles() {
     });
   }
   const t = (key, ico, label, sub, colors, action) => ({ key: 'steam:' + key, type: 'icon', icon: ico, label, value: '', title: label, sub, colors, activate: () => openSteam(action) });
+  // Downloads in progress: their progress here; the tile opens Steam's own
+  // downloads page when nothing is downloading.
+  const dl = downloads();
   tiles.push(
     t('store', 'store', 'store', 'browse the steam store', ['#1b6fb5', '#0b3a66'], 'storefront'),
     t('friends', 'friends', 'friends', 'friends and chat', ['#2a9c6c', '#11573a'], 'friends'),
-    t('downloads', 'downloads', 'downloads', 'installs and updates in progress', ['#5b6bd0', '#2c367d'], 'downloads'),
+    dl.length
+      ? { key: 'steam:downloads', type: 'icon', icon: 'downloads', label: 'downloads', value: `${dl.length} downloading`, title: 'downloads', sub: dl.map((g) => `${g.name} ${gameSub(g).replace('downloading · ', '')}`).join(', '), colors: ['#5b6bd0', '#2c367d'], activate: () => openDownloads() }
+      : t('downloads', 'downloads', 'downloads', 'installs and updates in progress', ['#5b6bd0', '#2c367d'], 'downloads'),
     t('library', 'library', 'steam library', 'open the full steam library', ['#4e5f6c', '#27323a'], 'library'),
     t('bigpicture', 'bigpicture', 'big picture', 'switch to steam big picture mode', ['#2f3c45', '#11181d'], 'bigpicture'),
     t('settings', 'gear', 'steam settings', 'steam client settings', ['#6c7880', '#394146'], 'settings'),
@@ -398,10 +431,14 @@ function homePivot() {
   const recent = state.all.filter((g) => g.lastPlayed > 0).sort(byRecent);
   const pinned = state.settings.pinned.map((id) => state.byId.get(id)).filter(Boolean);
   const pool = [...new Set(recent.concat(pinned, sorted(state.all, 'az')))];
-  const [last, hero, a, b] = [pool[0], pool[0], pool[1], pool[2]];
+  const [hero, a, b] = [pool[0], pool[1], pool[2]];
   const tiles = [];
   const at = (t, c, r, w = 1, h = 1) => tiles.push(Object.assign(t, { c, r, w, h }));
-  if (last) at(gameTile(last, { caption: `play ${last.name}`, activate: () => launch(last) }), 0, 0);
+  // The hero already says "continue" for a game; this tile plays it (or
+  // resumes a video watched more recently).
+  const resume = resumeTile();
+  if (resume && resume.game.kind !== 'jf') resume.caption = `play ${resume.game.name}`;
+  if (resume) at(resume, 0, 0);
   else at({ key: 'empty', type: 'icon', icon: 'controller', label: 'no games yet', value: state.lib.root ? 'install a game in steam' : 'steam was not found', title: 'no games', activate: () => openSteam('storefront') }, 0, 0);
   at(pinsTile(), 0, 1);
   at(recentTile(), 0, 2);
@@ -486,19 +523,64 @@ function catalog() {
   const strip = (t) => { const { c, r, w, h, hero, cycle, ...rest } = t; return rest; };
   return buildPivots().filter((pv) => pv.key !== 'home' && !hidden.has(pv.key)).map((pv) => {
     let items = pv.tiles.map(strip);
-    if (pv.key === 'games') {
-      items = sorted(state.steamGames, 'recent').map((g) => gameTile(g)).concat(items.filter((t) => t.type !== 'game'));
-    }
+    if (pv.key === 'games') items = dashGames().map((g) => gameTile(g)).concat(items.filter((t) => t.type !== 'game'));
     return { key: pv.key, title: pv.title, icon: SECTION_ICONS[pv.key] || 'grid', items };
   });
 }
 
-// Recently played games and streams, for styles with a "home" row.
-function recentItems(n = 12) {
+// The games list the styles show, with the guide's sort and "show" filter.
+function dashGames() {
+  const f = state.settings.dashFilter || 'all';
+  const pool = f === 'shortcuts' || f === 'pinned' ? state.steamGames.concat(state.lib.shortcuts) : state.steamGames;
+  return sorted(pool.filter((DASH_FILTERS[f] || DASH_FILTERS.all)[1]), state.settings.dashSort || 'recent');
+}
+
+function sortName(k) {
+  return (SORTS.find(([v]) => v === k) || SORTS[0])[1];
+}
+
+// Steam downloads in progress (and queued updates).
+function downloads() {
+  return state.lib.games.filter((g) => g.downloading);
+}
+
+function openDownloads() {
+  const list = downloads();
+  if (!list.length) { toast('nothing is downloading'); return; }
+  openLibrary({ title: 'downloads', list, sort: 0 });
+}
+
+// Quick resume, pins, then recently played games and streams, for styles
+// with a "home" row. The count is the "recent games" setting.
+function recentItems(n = state.settings.recentCount ?? 6) {
+  if (!n) return [];
+  const resume = resumeTile();
   const pinned = state.settings.pinned.map((id) => state.byId.get(id)).filter(Boolean);
-  const rest = sorted(state.all, 'recent').filter((g) => !pinned.includes(g));
-  return pinned.concat(rest).slice(0, n).map((g) => gameTile(g))
-    .concat(state.streams.slice(0, 2).map(streamTile));
+  const rest = sorted(state.all, 'recent').filter((g) => !pinned.includes(g) && !(resume && resume.game === g));
+  const games = pinned.concat(rest).slice(0, n - (resume ? 1 : 0)).map((g) => gameTile(g));
+  return (resume ? [resume] : []).concat(games, state.streams.slice(0, 2).map(streamTile));
+}
+
+// The most recent thing to pick back up: the last game played, or a
+// Jellyfin video with a saved position if that was watched more recently.
+function resumeTarget() {
+  const game = state.all.filter((g) => g.lastPlayed > 0).sort(byRecent)[0];
+  const v = state.video && !state.video.error && state.video.resume ? state.video.resume[0] : null;
+  if (v && (!game || (v.watched || 0) > game.lastPlayed)) return v;
+  return game || v || null;
+}
+
+// "continue …": one press starts the game or resumes the video.
+function resumeTile() {
+  const g = resumeTarget();
+  if (!g) return null;
+  const jf = g.kind === 'jf';
+  const name = jf && g.episode ? `${g.series} ${g.episode}` : g.name;
+  return {
+    key: 'resume', type: 'game', game: g, title: `continue ${name}`, caption: `continue ${name}`, label: `continue ${name}`,
+    sub: jf ? `resume at ${fmtTime(g.position / 1e7)}` : gameSub(g),
+    activate: () => (jf ? playVideo(g) : launch(g)),
+  };
 }
 
 function notInstalled() {
@@ -1076,6 +1158,7 @@ function menu(items, container, onChange) {
   function set(n) {
     i = Math.max(0, Math.min(items.length - 1, n));
     els.forEach((e, k) => e.classList.toggle('focused', k === i));
+    if (els[i]) els[i].scrollIntoView({ block: 'nearest' });
     if (onChange) onChange(items[i]);
   }
   set(0);
@@ -1155,6 +1238,12 @@ function openDetail(g) {
 }
 
 function openLibrary({ title = 'game library', filter = null, sort: startSort = null, list = null } = {}) {
+  // The plain library follows the guide's sort and "show" filter.
+  if (!filter && !list && DASH_FILTERS[state.settings.dashFilter] && state.settings.dashFilter !== 'all') {
+    filter = DASH_FILTERS[state.settings.dashFilter][1];
+    title += ` · ${DASH_FILTERS[state.settings.dashFilter][0]}`;
+  }
+  if (startSort == null) startSort = Math.max(0, SORTS.findIndex(([v]) => v === state.settings.dashSort));
   const root = el('div', 'overlay library');
   const panel = el('div', 'lib-panel');
   root.append(panel);
@@ -1274,11 +1363,16 @@ function openGuide() {
       { icon: 'user', label: 'my avatar', run: () => { closeAll(); openAvatarEditor(); } },
       { icon: 'image', label: 'change gamerpic', run: () => { closeAll(); openGamerpics(); } },
       { icon: 'friends', label: 'switch profile', run: () => { closeAll(); openSignIn(); } },
+      { icon: 'controller', label: 'controls and help', run: () => { closeAll(); openControls(); } },
       { icon: 'bigpicture', label: 'steam big picture', run: () => { closeAll(); openSteam('bigpicture'); } },
       { icon: 'fullscreen', label: 'toggle full screen', run: () => api.toggleFullscreen() },
       { icon: 'power', label: 'quit nostalgiaconsole', run: () => api.quit() },
     ] },
     { icon: 'play', label: 'games', items: () => [
+      ...(resumeTile() ? [{ icon: 'play', label: resumeTile().title, note: 'quick resume', run: () => { closeAll(); resumeTile().activate(); } }] : []),
+      { icon: 'grid', label: `sort games: ${sortName(state.settings.dashSort)}`, run: () => guideSet({ dashSort: SORTS[(SORTS.findIndex(([v]) => v === state.settings.dashSort) + 1) % SORTS.length][0] }) },
+      { icon: 'search', label: `show: ${(DASH_FILTERS[state.settings.dashFilter] || DASH_FILTERS.all)[0]}`, run: () => { const ks = Object.keys(DASH_FILTERS); guideSet({ dashFilter: ks[(ks.indexOf(state.settings.dashFilter) + 1) % ks.length] }); } },
+      ...(downloads().length ? [{ icon: 'downloads', label: 'downloads', note: `${downloads().length}`, run: () => { closeAll(); openDownloads(); } }] : []),
       ...recent.map((g) => ({ icon: 'play', label: g.name, note: timeAgo(g.lastPlayed).replace('played ', ''), run: () => { closeAll(); launch(g); } })),
       { icon: 'grid', label: 'all games', run: () => { closeAll(); openLibrary(); } },
     ] },
@@ -1299,6 +1393,8 @@ function openGuide() {
 
   let tab = 0;
   let m = null;
+  // Changes a setting from the guide and keeps the guide where it was.
+  const guideSet = async (patch) => { state.settings = await api.setSettings(patch); applySettings(); rebuild(); show(tab, m.index()); };
   function show(t, at = 0) {
     tab = (t + tabs.length) % tabs.length;
     tabsEl.innerHTML = `<span class="btn btn-lb">LB</span>${tabs.map((tb, k) => `<span class="gtab${k === tab ? ' on' : ''}">${icon(tb.icon)}<em>${esc(tb.label)}</em></span>`).join('')}<span class="btn btn-rb">RB</span>`;
@@ -1886,7 +1982,7 @@ function openCustomize() {
     { icon: 'grid', label: 'layout', items: () => [
       opt('grid', 'tile size', 'tileSize', Object.keys(TILE_SIZES), (v) => v, null, 'smaller tiles fit more on the screen at once (every style but channels)'),
       opt('info', 'text size', 'textSize', Object.keys(TEXT_SIZES), (v) => v, null, 'names and captions, in every style'),
-      opt('play', 'recent games', 'recentCount', COUNTS.recentCount, (v) => (v ? `${v} on the games tab` : 'none'), null, `how many recent games the games tab shows next to the library${metroOnly()}`),
+      opt('play', 'recent games', 'recentCount', COUNTS.recentCount, (v) => (v ? `${v} on the games tab` : 'none'), null, `how many recent games the games tab and each style\'s recent row show`),
       opt('friends', 'friends shown', 'friendCount', COUNTS.friendCount, (v) => `up to ${v}`, null, 'how many friends the social tab lists'),
       { icon: 'refresh', label: 'cycle home games', note: state.settings.cycleTiles ? 'on' : 'off', info: `the two small game tiles on home change every few seconds${metroOnly()}`, change: () => save({ cycleTiles: !state.settings.cycleTiles }) },
     ] },
@@ -1943,6 +2039,230 @@ function openCustomize() {
   });
 }
 
+// ---------- controls: help and remapping ----------
+
+// What each action does, for the controls screen.
+const ACTION_HELP = [
+  ['a', 'select, open'], ['b', 'back, home'], ['x', 'play now'], ['y', 'pin a game'],
+  ['lb', 'previous section'], ['rb', 'next section'], ['lt', 'page up'], ['rt', 'page down'],
+  ['view', 'guide'], ['start', 'game details'], ['guide', 'guide'],
+];
+// Standard-mapping button names (Xbox / PlayStation).
+const PAD_NAMES = ['A / cross', 'B / circle', 'X / square', 'Y / triangle', 'LB / L1', 'RB / R1', 'LT / L2', 'RT / R2', 'view / share', 'menu / options',
+  'left stick', 'right stick', 'd-pad up', 'd-pad down', 'd-pad left', 'd-pad right', 'home / ps'];
+
+function openControls() {
+  sound.play('open');
+  const root = el('div', 'overlay guide customize controls');
+  root.append(el('div', 'scrim'));
+  root.querySelector('.scrim').addEventListener('click', () => popOverlay());
+  const panel = el('div', 'guide-panel');
+  const list = el('div', 'menu');
+  const info = el('div', 'cz-info');
+  panel.append(el('div', 'cz-title', 'controls'), list, info);
+  root.append(panel);
+  let m = null;
+  let cancel = null;
+  const padName = (i) => (i >= 0 ? PAD_NAMES[i] || `button ${i}` : 'none');
+  function show(at = 0) {
+    list.innerHTML = '';
+    const items = ACTION_HELP.map(([a, what]) => ({
+      icon: 'controller', label: `${what}`, note: `${padName(buttonOf(a))} · key ${KEY_NAMES[a] || '–'}`,
+      info: 'press a to give this a different controller button; the button it had moves to whatever that one did',
+      run: () => listen(a, what),
+    }));
+    items.push({ icon: 'grid', label: 'move', note: 'd-pad or left stick · arrows / wasd', info: 'moving can\'t be remapped', run: () => {} });
+    m = menu(items, list, (it) => { info.textContent = it.info || ''; });
+    m.set(at);
+  }
+  function listen(a, what) {
+    info.textContent = `press the controller button for "${what}"… (esc to cancel)`;
+    list.children[m.index()].classList.add('listening');
+    cancel = captureButton(async (i) => {
+      cancel = null;
+      const padMap = { ...(state.settings.padMap || {}), [a]: i };
+      state.settings = await api.setSettings({ padMap });
+      applySettings();
+      sound.play('select');
+      show(m.index());
+      info.textContent = `${what}: ${padName(i)}`;
+    });
+  }
+  show(0);
+  pushOverlay({
+    el: root,
+    handle(a) {
+      if (cancel) { if (a === 'b') { cancel(); cancel = null; show(m.index()); } return; }
+      if (a === 'up') m.move(-1);
+      else if (a === 'down') m.move(1);
+      else if (a === 'a') m.run();
+      else if (a === 'y') {
+        api.setSettings({ padMap: {} }).then((v) => { state.settings = v; applySettings(); show(m.index()); toast('controller buttons reset'); });
+      } else if (a === 'b' || a === 'view') popOverlay();
+    },
+    onClose() { if (cancel) cancel(); },
+    hints: () => [['a', 'remap'], ['y', 'reset'], ['b', 'done']],
+  });
+}
+
+// ---------- first-run setup ----------
+
+const LOOK_INFO = {
+  metro: 'tiles in pivots you flip through with lb / rb',
+  nxe: 'channels of cards in 3d, with your avatar beside them',
+  blades: 'one coloured blade per section, a menu on each',
+  xmb: 'categories across, items down, over a flowing wave',
+  wii: 'pages of rounded channels and a clock bar',
+  ps5: 'an icon row over the game\'s own artwork',
+  switch: 'big square tiles and round shortcuts',
+  retro: 'glossy mid-2000s menus with a jump back in dock',
+};
+
+function openSetup() {
+  sound.play('open');
+  const root = el('div', 'overlay guide customize setup');
+  root.append(el('div', 'scrim'));
+  const panel = el('div', 'guide-panel');
+  const head = el('div', 'cz-title');
+  const steps = el('div', 'setup-steps');
+  const body = el('div', 'setup-body');
+  const list = el('div', 'menu');
+  const info = el('div', 'cz-info');
+  panel.append(head, steps, body, list, info);
+  root.append(panel);
+
+  const save = async (patch) => { state.settings = await api.setSettings(patch); applySettings(); rebuild(); };
+  const step = (vals, v, d) => vals[(vals.indexOf(v) + d + vals.length) % vals.length];
+  const cycle = (icon, label, key, vals, fmt, note) => ({
+    icon, label, note: fmt(state.settings[key]), info: note, change: (d) => save({ [key]: step(vals, state.settings[key], d) }),
+  });
+  const named = (v) => v || 'style default';
+  const ml = state.lib.moonlight;
+  const PAGES = [
+    { title: 'welcome', text: () => `<b>welcome to nostalgiaconsole</b><p>found ${state.all.length} game${state.all.length === 1 ? '' : 's'}${state.lib.root ? '' : ' (steam was not found)'}${ml && ml.hosts && ml.hosts.length ? ` and ${ml.hosts.length} moonlight host${ml.hosts.length === 1 ? '' : 's'}` : ''}. a few quick choices and you're in; all of them can be changed later in settings.</p>`,
+      items: () => [] },
+    { title: 'pick a style', text: () => `<b>${esc(LOOK_NAMES[state.settings.look] || '')}</b><p>${esc(LOOK_INFO[state.settings.look] || '')}. it changes behind this panel as you pick.</p>`,
+      items: () => [cycle('grid', 'dashboard style', 'look', Object.keys(LOOK_NAMES), (v) => LOOK_NAMES[v], 'left / right to try each one')] },
+    { title: 'colors', text: () => '<p>pick an accent and a background, or keep the style\'s own.</p>',
+      items: () => [
+        cycle('grid', 'tile color', 'tileColor', ['', ...Object.keys(TILE_HEX)], named, 'tiles and highlights'),
+        cycle('image', 'background', 'bgColor', ['', ...Object.keys(BG_HEX)], named, 'the color behind everything'),
+        cycle('grid', 'tile size', 'tileSize', Object.keys(TILE_SIZES), (v) => v, 'smaller fits more on a screen; huge suits a tv across the room'),
+      ] },
+    { title: 'you', text: () => `<p>your name shows on the dashboard; your avatar on its tile and in the sign-in lineup.</p>`,
+      items: () => [
+        { icon: 'user', label: 'name', note: displayName(), info: 'press a to type it', run: async () => { const v = await openKeyboard({ title: 'your name', value: state.settings.gamertag || displayName() }); if (v !== null) { await save({ gamertag: v.trim() }); renderGamercard(); } show(); } },
+        { icon: 'user', label: 'my avatar', note: 'customize', info: 'press a to open the avatar editor', run: () => openAvatarEditor() },
+      ] },
+    { title: 'all set', text: () => `<b>you're all set</b><p>press <i>guide</i> (G or the home button) any time for quick resume, sort and filter, settings and switching profiles. <i>x</i> plays a game straight away; <i>y</i> pins it.</p>`,
+      items: () => [] },
+  ];
+  let page = 0;
+  let m = null;
+  let items = [];
+  function show(at = 0) {
+    const pg = PAGES[page];
+    head.textContent = 'setup';
+    steps.innerHTML = PAGES.map((p, k) => `<span class="${k === page ? 'on' : k < page ? 'done' : ''}">${esc(p.title)}</span>`).join('');
+    body.innerHTML = pg.text();
+    list.innerHTML = '';
+    const last = page === PAGES.length - 1;
+    items = pg.items().map((it) => ({ ...it, run: it.run || (() => change(1)) }))
+      .concat([{ icon: last ? 'play' : 'play', label: last ? 'start playing' : page === 0 ? 'get started' : 'next', info: page ? 'b goes back a step' : '', run: () => next(1) }]);
+    m = menu(items, list, (it) => { info.textContent = it.info || ''; });
+    m.set(Math.min(at, items.length - 1));
+  }
+  async function change(d) {
+    const it = items[m.index()];
+    if (!it.change) return;
+    sound.play('move');
+    await it.change(d);
+    show(m.index());
+  }
+  async function next(d) {
+    if (page + d >= PAGES.length) { await save({ setupDone: true }); popOverlay(); return; }
+    page = Math.max(0, page + d);
+    sound.play('channel');
+    show(0);
+  }
+  show(0);
+  pushOverlay({
+    el: root,
+    handle(a) {
+      if (a === 'up') m.move(-1);
+      else if (a === 'down') m.move(1);
+      else if (a === 'left' || a === 'right') change(a === 'left' ? -1 : 1);
+      else if (a === 'a') m.run();
+      else if (a === 'b') { if (page) next(-1); }
+      else if (a === 'start') next(PAGES.length);
+    },
+    onClose() { if (!state.settings.setupDone) api.setSettings({ setupDone: true }).then((v) => { state.settings = v; }); },
+    hints: () => [['a', 'select'], ['b', 'back'], ['start', 'skip']],
+  });
+}
+
+// ---------- screensaver ----------
+// After the chosen minutes without input, game art drifts across the
+// screen with the clock. Any input wakes it without acting. It never starts
+// while a game is in front (the window has no focus then).
+
+const saver = { el: null, timer: null, idleAt: Date.now(), stop: null };
+
+function noteInput() {
+  saver.idleAt = Date.now();
+}
+
+function checkIdle() {
+  const min = state.settings && state.settings.screensaver;
+  if (!min || saver.el || !document.hasFocus() || document.hidden) return;
+  if (Date.now() - saver.idleAt >= min * 60e3) startSaver();
+}
+
+function startSaver() {
+  const pool = state.all.filter((g) => g.kind === 'steam').sort(byRecent).slice(0, 24);
+  const box = el('div', 'saver');
+  const clock = el('div', 'saver-clock');
+  box.append(clock);
+  document.body.append(box);
+  saver.el = box;
+  let k = 0;
+  const tick = () => { clock.innerHTML = `<b>${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</b><span>${esc(displayName())}</span>`; };
+  const slide = () => {
+    tick();
+    const g = pool.length ? pool[k++ % pool.length] : null;
+    const s2 = el('div', 'saver-slide');
+    if (g) {
+      s2.append(artEl(g, ['hero', 'header', 'portrait']));
+      s2.append(el('div', 'saver-name', esc(g.name)));
+    }
+    // Wander: each slide pans a different way.
+    s2.style.setProperty('--dx', `${(k % 2 ? -1 : 1) * 4}%`);
+    s2.style.setProperty('--dy', `${((k % 3) - 1) * 2}%`);
+    box.append(s2);
+    requestAnimationFrame(() => s2.classList.add('in'));
+    const old = box.querySelectorAll('.saver-slide');
+    if (old.length > 2) old[0].remove();
+  };
+  slide();
+  const id = setInterval(slide, 12000);
+  saver.stop = () => clearInterval(id);
+  requestAnimationFrame(() => box.classList.add('on'));
+  if (state.view && state.view.id === 'metro' && dashAvatar) dashAvatar.stop();
+}
+
+// Returns true when the input only woke the screensaver.
+function wakeSaver() {
+  noteInput();
+  if (!saver.el) return false;
+  saver.stop();
+  const box = saver.el;
+  saver.el = null;
+  box.classList.remove('on');
+  setTimeout(() => box.remove(), 500);
+  if (state.view) state.view.layout();
+  return true;
+}
+
 // ---------- settings / intro ----------
 
 function applySettings() {
@@ -1962,6 +2282,7 @@ function applySettings() {
   for (const [k, v] of Object.entries(vars)) if (v) b.style.setProperty(k, v); else b.style.removeProperty(k);
   b.classList.toggle('custom-bg', !!bg);
   b.classList.toggle('custom-tile', !!tile);
+  setPadMap(s.padMap);
   b.style.setProperty('--text-scale', (TEXT_SIZES[s.textSize] || 1) * (0.5 + 0.5 * (TILE_SIZES[s.tileSize] || 1)));
   dressAvatar();
   sound.configure(state.settings);
@@ -1987,6 +2308,7 @@ function endIntro() {
 // ---------- input ----------
 
 function handle(action) {
+  if (wakeSaver()) return;
   if (action === 'fullscreen') { api.toggleFullscreen(); return; }
   if (state.introUntil > Date.now()) { endIntro(); return; }
   const top = state.overlays[state.overlays.length - 1];
@@ -1997,6 +2319,7 @@ function handle(action) {
 
 let wheelAt = 0;
 window.addEventListener('wheel', (e) => {
+  if (wakeSaver()) return;
   if (state.overlays.length || Date.now() - wheelAt < 220) return;
   wheelAt = Date.now();
   const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
@@ -2006,6 +2329,7 @@ window.addEventListener('wheel', (e) => {
 
 let idleTimer = null;
 window.addEventListener('mousemove', () => {
+  wakeSaver();
   document.body.classList.remove('nocursor');
   clearTimeout(idleTimer);
   idleTimer = setTimeout(() => document.body.classList.add('nocursor'), 2500);
@@ -2056,7 +2380,10 @@ async function boot() {
   Promise.all([api.keys(), api.web()]).then(([k, w]) => { state.keys = k; state.web = w; rebuild(); loadVideo().then(() => rebuild()); }).catch(() => {});
   $('#avatar').addEventListener('click', () => { if (!state.overlays.length) openAvatarEditor(); });
   if (settings.intro && (!CAPTURE || params.has('intro'))) runIntro();
-  if (settings.profiles.length > 1 && !CAPTURE) setTimeout(() => openSignIn({ startup: true }), settings.intro ? 3100 : 200);
+  if (!settings.setupDone) setTimeout(() => openSetup(), settings.intro && !CAPTURE ? 3100 : 200);
+  else if (settings.profiles.length > 1 && !CAPTURE) setTimeout(() => openSignIn({ startup: true }), settings.intro ? 3100 : 200);
+  setInterval(checkIdle, 10000);
+  if (params.has('screensaver')) setTimeout(startSaver, 300);
   document.body.classList.add('ready');
 }
 

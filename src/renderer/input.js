@@ -10,7 +10,32 @@ const KEYS = {
 };
 
 // Standard gamepad mapping.
-const BUTTONS = ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'view', 'start', null, null, 'up', 'down', 'left', 'right', 'guide'];
+export const BUTTONS = ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'view', 'start', null, null, 'up', 'down', 'left', 'right', 'guide'];
+export const KEY_NAMES = Object.fromEntries(Object.entries(KEYS).reduce((m, [k, a]) => { if (!m.some(([x]) => x === a)) m.push([a, k === ' ' ? 'space' : k]); return m; }, []));
+
+// Remapping (settings.padMap, action -> button index). Giving an action a
+// new button swaps it with whatever that button did, so nothing is lost.
+let map = BUTTONS.slice();
+export function setPadMap(padMap) {
+  map = BUTTONS.slice();
+  for (const [a, i] of Object.entries(padMap || {})) {
+    const was = map.indexOf(a);
+    const prev = map[i] ?? null;
+    if (was >= 0) map[was] = prev;
+    map[i] = a;
+  }
+}
+export function buttonOf(action) {
+  return map.indexOf(action);
+}
+
+// The next fresh controller button press goes to cb (its index) instead of
+// becoming an action. Returns a cancel function.
+let capture = null;
+export function captureButton(cb) {
+  capture = cb;
+  return () => { if (capture === cb) capture = null; };
+}
 const REPEATS = new Set(['up', 'down', 'left', 'right', 'lt', 'rt']);
 const FIRST_REPEAT = 380;
 const REPEAT = 95;
@@ -25,10 +50,15 @@ export function startInput(handler) {
 
   const held = new Map();
   let focused = true;
+  let rawNow = new Set();
+  let rawBefore = new Set();
   function pressed(pad) {
     const out = new Set();
     pad.buttons.forEach((b, i) => {
-      if (BUTTONS[i] && (b.pressed || b.value > 0.6)) out.add(BUTTONS[i]);
+      if (b.pressed || b.value > 0.6) {
+        rawNow.add(i);
+        if (map[i]) out.add(map[i]);
+      }
     });
     const [lx = 0, ly = 0] = pad.axes;
     if (lx < -0.55) out.add('left');
@@ -45,7 +75,16 @@ export function startInput(handler) {
     if (!document.hasFocus()) { held.clear(); focused = false; return; }
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const down = new Set();
+    rawBefore = rawNow;
+    rawNow = new Set();
     for (const p of pads) if (p && p.connected) for (const a of pressed(p)) down.add(a);
+    if (capture) {
+      const fresh = [...rawNow].find((i) => !rawBefore.has(i));
+      // Whatever is held now must be released before it acts again.
+      for (const a of down) held.set(a, { next: Infinity });
+      if (fresh !== undefined) { const cb = capture; capture = null; cb(fresh); }
+      return;
+    }
     if (!focused) {
       // Buttons still held from the game (say, A on its quit menu) must be
       // released before they count here.

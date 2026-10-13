@@ -11,9 +11,11 @@ import { itemTitle, itemSub, itemArt } from './common.js';
 const HAND = `<svg viewBox="0 0 64 80" aria-hidden="true"><path d="M22 6c3.3 0 6 2.7 6 6v22l2-.6V28c0-3 2.4-5.4 5.4-5.4S41 25 41 28v6.4l1.6-.3c3-.5 5.6 1.8 5.6 4.8v2.5l1.3-.2c3-.4 5.5 1.9 5.5 4.9V58c0 9.9-8.1 18-18 18h-6.6c-5.6 0-10.9-2.7-14.2-7.3L5.7 55.9c-1.8-2.5-1.3-6 1.1-7.9 2.4-1.9 5.8-1.6 7.8.7L16 50.4V12c0-3.3 2.7-6 6-6z" fill="#fff" stroke="#9aa6ae" stroke-width="2.4" stroke-linejoin="round"/><path d="M28 34v12M41 34.4v11.6M48.2 41.4V50" stroke="#c3ccd2" stroke-width="2.2" stroke-linecap="round"/></svg>`;
 const MAIL = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.5 7 8.5 6.5L20.5 7"/></svg>';
 
-const COLS = 4;
-const ROWS = 3;
-const PER = COLS * ROWS;
+// Channels per page by tile size (customize): huge 3x2 ... tiny 6x4.
+const GRIDS = { 1.15: [3, 2], 1: [4, 3], 0.85: [5, 3], 0.72: [5, 4], 0.6: [6, 4] };
+let COLS = 4;
+let ROWS = 3;
+let PER = COLS * ROWS;
 const FOLDERS = ['search', 'social', 'steam', 'settings'];
 
 export default function createWii(ctx, root) {
@@ -90,6 +92,9 @@ export default function createWii(ctx, root) {
   }
 
   function draw() {
+    [COLS, ROWS] = GRIDS[ctx.scale()] || [4, 3];
+    PER = COLS * ROWS;
+    pages.style.setProperty('--cols', COLS);
     pages.innerHTML = '';
     const n = Math.max(1, Math.ceil(channels.length / PER));
     for (let p = 0; p < n; p++) {

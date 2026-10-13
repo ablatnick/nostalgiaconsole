@@ -72,6 +72,18 @@ shot avatar-editor 'G,Down,Down,Return,wait1500'
 shot signin 'G,Down,Down,Down,Down,Return,Right,wait2500'
 shot midnight '' midnight
 shot boot '' classic --intro --delay=900
+# setupshot <name> <keys>: the first-run setup
+setupshot() {
+  keep=${SETTINGS:-}
+  SETTINGS="$keep\"setupDone\":false,"
+  shot "$1" "$2"
+  SETTINGS=$keep
+}
+setupshot setup 'wait500'
+setupshot setup-style 'Return,wait300,Right,Right,wait1200'
+shot controls 'G,Down,Down,Down,Down,Down,Return,wait300'
+shot customize-live 'E,E,E,E,E,E,Down,Return,Down,Down,Right,Right,Down,Right,wait500'
+shot screensaver 'wait1500' classic --screensaver
 lookshot look-nxe nxe ''
 lookshot look-blades blades ''
 lookshot look-xmb xmb ''

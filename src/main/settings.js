@@ -15,6 +15,11 @@ const TEXT_SIZES = ['small', 'normal', 'large'];
 const LOOKS = ['metro', 'nxe', 'blades', 'xmb', 'wii', 'ps5', 'switch', 'retro'];
 const TABS = ['search', 'games', 'apps', 'video', 'streaming', 'social', 'steam'];
 const COUNTS = { recentCount: [0, 3, 6, 9, 12], friendCount: [6, 12, 18, 24, 36] };
+// Minutes of no input before the screensaver; 0 = off.
+const SCREENSAVER = [0, 2, 5, 10, 20];
+const DASH_SORTS = ['recent', 'az', 'played', 'size'];
+const DASH_FILTERS = ['all', 'pinned', 'steam', 'shortcuts', 'played', 'unplayed'];
+const PAD_ACTIONS = ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'view', 'start', 'guide'];
 
 const DEFAULTS = {
   theme: 'classic',
@@ -44,17 +49,24 @@ const DEFAULTS = {
   recentCount: 6,
   friendCount: 24,
   cycleTiles: true,
+  screensaver: 5,
+  friendAlerts: true,
+  dashSort: 'recent',
+  dashFilter: 'all',
+  // Gamepad remapping: action -> standard-mapping button index.
+  padMap: {},
+  setupDone: false,
 };
 
 // What each profile keeps for itself.
-const PROFILE_KEYS = ['gamertag', 'avatarLook', 'gamerpic', 'pinned', 'theme', 'tileColor', 'bgColor', 'look'];
+const PROFILE_KEYS = ['gamertag', 'avatarLook', 'gamerpic', 'pinned', 'theme', 'tileColor', 'bgColor', 'look', 'jellyfinUser', 'dashSort', 'dashFilter'];
 
 function sanitize(input) {
   const s = { ...DEFAULTS };
   if (!input || typeof input !== 'object') return s;
   if (THEMES.includes(input.theme)) s.theme = input.theme;
   if (LOOKS.includes(input.look)) s.look = input.look;
-  for (const k of ['sound', 'intro', 'showTools', 'fullscreen', 'communityAvatar', 'moonlight', 'avatar', 'autostart', 'cycleTiles']) {
+  for (const k of ['sound', 'intro', 'showTools', 'fullscreen', 'communityAvatar', 'moonlight', 'avatar', 'autostart', 'cycleTiles', 'friendAlerts', 'setupDone']) {
     if (typeof input[k] === 'boolean') s[k] = input[k];
   }
   if (Number.isFinite(input.volume)) s.volume = Math.max(0, Math.min(100, Math.round(input.volume)));
@@ -72,6 +84,13 @@ function sanitize(input) {
   if (TEXT_SIZES.includes(input.textSize)) s.textSize = input.textSize;
   if (Array.isArray(input.hiddenTabs)) s.hiddenTabs = [...new Set(input.hiddenTabs.filter((t) => TABS.includes(t)))];
   for (const [k, list] of Object.entries(COUNTS)) if (list.includes(input[k])) s[k] = input[k];
+  if (SCREENSAVER.includes(input.screensaver)) s.screensaver = input.screensaver;
+  if (DASH_SORTS.includes(input.dashSort)) s.dashSort = input.dashSort;
+  if (DASH_FILTERS.includes(input.dashFilter)) s.dashFilter = input.dashFilter;
+  if (input.padMap && typeof input.padMap === 'object') {
+    s.padMap = {};
+    for (const a of PAD_ACTIONS) if (Number.isInteger(input.padMap[a]) && input.padMap[a] >= 0 && input.padMap[a] < 32) s.padMap[a] = input.padMap[a];
+  }
   if (AFTER_LAUNCH.includes(input.afterLaunch)) s.afterLaunch = input.afterLaunch;
   if (typeof input.gamertag === 'string') s.gamertag = input.gamertag.slice(0, 32);
   if (typeof input.jellyfinUser === 'string') s.jellyfinUser = input.jellyfinUser.slice(0, 64);
@@ -98,6 +117,8 @@ class Settings {
     this.file = path.join(dir, 'settings.json');
     let raw = null;
     try { raw = JSON.parse(fs.readFileSync(this.file, 'utf8')); } catch { /* first run */ }
+    // Settings from before the setup screen existed: already set up.
+    if (raw && typeof raw === 'object' && raw.setupDone === undefined) raw.setupDone = true;
     this.values = sanitize(raw);
   }
 
@@ -123,7 +144,7 @@ Settings.prototype.createProfile = function createProfile(name) {
     v.profile = 'p1';
   }
   const id = 'p' + (Math.max(0, ...v.profiles.map((p) => Number(p.id.slice(1)))) + 1);
-  v.profiles.push({ id, name: String(name || 'player').slice(0, 32), gamertag: String(name || '').slice(0, 32), avatarLook: null, gamerpic: '', pinned: [], theme: v.theme, look: v.look });
+  v.profiles.push({ id, name: String(name || 'player').slice(0, 32), gamertag: String(name || '').slice(0, 32), avatarLook: null, gamerpic: '', pinned: [], theme: v.theme, look: v.look, jellyfinUser: '', dashSort: 'recent', dashFilter: 'all' });
   return this.switchProfile(id);
 };
 
@@ -142,4 +163,4 @@ Settings.prototype.removeProfile = function removeProfile(id) {
   return this.update({ profiles: v.profiles.filter((p) => p.id !== id) });
 };
 
-module.exports = { Settings, sanitize, DEFAULTS, THEMES, AFTER_LAUNCH, TILE_COLORS, BG_COLORS, TILE_SIZES, TEXT_SIZES, TABS, COUNTS, LOOKS };
+module.exports = { Settings, sanitize, DEFAULTS, THEMES, AFTER_LAUNCH, TILE_COLORS, BG_COLORS, TILE_SIZES, TEXT_SIZES, TABS, COUNTS, LOOKS, SCREENSAVER, DASH_SORTS, DASH_FILTERS, PAD_ACTIONS };

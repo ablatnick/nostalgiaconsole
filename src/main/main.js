@@ -261,7 +261,7 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.on('focus', () => refreshSoon());
-  let query = opts.capture ? '?capture=1' + (arg('intro') ? '&intro=1' : '') : '';
+  let query = opts.capture ? '?capture=1' + (arg('intro') ? '&intro=1' : '') + (arg('screensaver') ? '&screensaver=1' : '') : '';
   if (opts.capture && opts.avatarShot) query += '&avatarShot=1&look=' + encodeURIComponent(typeof opts.avatarShot === 'string' ? opts.avatarShot : '{}');
   win.loadURL('nostalgia://ui/index.html' + query);
   if (opts.capture) runCapture();
@@ -345,6 +345,7 @@ async function refreshWeb(force = false) {
     try { await localStats.refreshStatus(localStats.friends(library.root, user.accountId)); } catch { /* offline */ }
     webBusy = false;
     const data = webData();
+    friendAlerts(data.friends);
     if (win && !win.isDestroyed()) win.webContents.send('web', data);
     return data;
   }
@@ -361,8 +362,28 @@ async function refreshWeb(force = false) {
     webBusy = false;
   }
   const data = webData();
+  friendAlerts(data.friends);
   if (win && !win.isDestroyed()) win.webContents.send('web', data);
   return data;
+}
+
+// Pop-ups when a friend comes online or starts a game. The first check
+// after start-up only records who is on, so it never floods.
+let lastFriends = null;
+function friendAlerts(friends) {
+  const now = new Map((friends || []).map((f) => [f.steamid, f]));
+  const before = lastFriends;
+  lastFriends = now;
+  if (!before || !settings.values.friendAlerts) return;
+  const news = [];
+  for (const [id, f] of now) {
+    const was = before.get(id);
+    if (!was) continue;
+    if (f.game && f.game !== was.game) news.push([f, 'friend in game', `${f.name} is playing ${f.game}`]);
+    else if (f.state > 0 && !(was.state > 0)) news.push([f, 'friend online', `${f.name} is online`]);
+  }
+  if (news.length > 3) { sendNotice('friends online', `${news.length} friends came online`); return; }
+  news.forEach(([f, title, msg], i) => setTimeout(() => sendNotice(title, msg, f.avatar || null), i * 6500));
 }
 
 // ---------- notifications over games ----------
@@ -495,6 +516,7 @@ ipcMain.handle('jf:shelves', async () => {
   if (!jellyfin.configured()) return null;
   try { return await jellyfin.shelves(settings.values.jellyfinUser); } catch (e) { return { error: e.message }; }
 });
+ipcMain.handle('jf:users', async () => { try { return await jellyfin.users(); } catch { return []; } });
 ipcMain.handle('jf:episodes', (_e, id) => (/^[\w-]+$/.test(String(id)) ? jellyfin.episodes(String(id)) : []));
 ipcMain.handle('jf:report', (_e, kind, body) => jellyfin.report(kind, body));
 ipcMain.handle('jf:openWeb', (_e, id) => {

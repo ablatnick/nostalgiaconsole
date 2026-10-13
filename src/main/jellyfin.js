@@ -44,6 +44,7 @@ class Jellyfin {
       || users.find((x) => x.Policy && x.Policy.IsAdministrator) || users[0];
     if (!u) throw new Error('No Jellyfin users');
     this.userId = u.Id;
+    this.userFor = preferred || '';
     return { id: u.Id, name: u.Name, all: users.map((x) => x.Name) };
   }
 
@@ -54,6 +55,8 @@ class Jellyfin {
       year: i.ProductionYear || '', runtime: i.RunTimeTicks ? Math.round(i.RunTimeTicks / 6e8) : 0,
       progress: i.UserData && i.UserData.PlayedPercentage ? Math.round(i.UserData.PlayedPercentage) : 0,
       position: i.UserData ? i.UserData.PlaybackPositionTicks || 0 : 0,
+      // Unix seconds, like Steam's lastPlayed.
+      watched: i.UserData && i.UserData.LastPlayedDate ? Math.floor(Date.parse(i.UserData.LastPlayedDate) / 1000) || 0 : 0,
       overview: (i.Overview || '').slice(0, 400),
       image: i.ImageTags && i.ImageTags.Primary ? 'Primary' : '',
       backdrop: (i.BackdropImageTags && i.BackdropImageTags.length) || (i.ParentBackdropImageTags && i.ParentBackdropImageTags.length) ? 'Backdrop' : '',
@@ -63,7 +66,8 @@ class Jellyfin {
   }
 
   async shelves(preferred) {
-    const u = this.userId ? { id: this.userId } : await this.user(preferred);
+    // A different profile can pick a different Jellyfin user.
+    const u = this.userId && this.userFor === (preferred || '') ? { id: this.userId } : await this.user(preferred);
     const fields = 'Fields=Overview,PrimaryImageAspectRatio&EnableImageTypes=Primary,Backdrop,Thumb';
     const [resume, nextUp, movies, shows] = await Promise.all([
       this.api(`/Users/${u.id}/Items/Resume?Limit=12&MediaTypes=Video&${fields}`),
@@ -73,6 +77,12 @@ class Jellyfin {
     ]);
     const map = (list) => (Array.isArray(list) ? list : (list && list.Items) || []).map(Jellyfin.item);
     return { resume: map(resume), nextUp: map(nextUp), movies: map(movies), shows: map(shows) };
+  }
+
+  // Names for the user picker in settings.
+  async users() {
+    const users = await this.api('/Users');
+    return users.map((x) => ({ name: x.Name, admin: !!(x.Policy && x.Policy.IsAdministrator) }));
   }
 
   async episodes(seriesId) {

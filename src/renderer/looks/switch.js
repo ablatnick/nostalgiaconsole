@@ -61,7 +61,7 @@ export default function createSwitch(ctx, root) {
       const s = ctx.catalog().find((x) => x.key === section.key);
       tiles = s ? s.items : [];
     } else {
-      tiles = ctx.recentItems(12).concat([{ key: 'ts:all', type: 'icon', icon: 'grid', label: 'all games', title: 'all games', activate: () => ctx.openLibrary() }]);
+      tiles = ctx.recentItems().concat([{ key: 'ts:all', type: 'icon', icon: 'grid', label: 'all games', title: 'all games', activate: () => ctx.openLibrary() }]);
     }
     const k = tiles.findIndex((t) => t.key === keep);
     if (k >= 0) i = k; else i = Math.min(i, Math.max(0, tiles.length - 1));

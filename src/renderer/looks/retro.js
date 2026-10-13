@@ -50,7 +50,7 @@ export default function createRetro(ctx, root) {
   function render() {
     const keep = secs[cur] && secs[cur].key;
     secs = ctx.catalog();
-    dockItems = ctx.recentItems(12).slice(0, 12);
+    dockItems = ctx.recentItems();
     const k = secs.findIndex((s) => s.key === (keep || 'games'));
     cur = k >= 0 ? k : 0;
     dockAt = Math.min(dockAt, Math.max(0, dockItems.length - 1));

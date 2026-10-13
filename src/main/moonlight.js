@@ -97,19 +97,44 @@ function byteArray(v) {
   return v.replace(/\\(x[0-9a-fA-F]{1,2}|.)/g, (_, e) => (e[0] === 'x' ? String.fromCharCode(parseInt(e.slice(1), 16)) : { n: '\n', r: '\r', t: '\t', 0: '\0' }[e] ?? e));
 }
 
+// reg query prints numbers in hex: QSettings saves ints (like app ids) as
+// REG_DWORD/REG_QWORD, and strings with a NUL in them as UTF-16 REG_BINARY.
+function regValue(type, text) {
+  if (type === 'REG_DWORD' || type === 'REG_QWORD') return /^0x[0-9a-f]+$/i.test(text) ? BigInt(text).toString() : text;
+  if (type === 'REG_BINARY' && /^([0-9a-f]{2})*$/i.test(text)) return Buffer.from(text, 'hex').toString('utf16le').replace(/\0+$/, '');
+  return text;
+}
+
 // QSettings on Windows keeps hosts under HKCU\Software\<org>\Moonlight\hosts\<n>.
+// PowerShell gives exact values (the server certificate is a multi-line
+// string, which reg query's line-based output cuts short); reg query is the
+// fallback.
+const PS_DUMP = `$r = 'HKCU:\\Software\\${ORG}\\Moonlight\\hosts'
+if (Test-Path $r) { @(Get-Item $r) + @(Get-ChildItem $r -Recurse) | ForEach-Object { $k = $_; $k.GetValueNames() | ForEach-Object {
+  $v = $k.GetValue($_); if ($v -is [byte[]]) { $v = [Text.Encoding]::Unicode.GetString($v).TrimEnd([char]0) }
+  [pscustomobject]@{ k = $k.Name; n = $_; v = [string]$v } } } | ConvertTo-Json -Compress }`;
+
 function readRegistryHosts() {
   const out = {};
+  const put = (keyName, name, value) => {
+    const key = String(keyName).match(/\\hosts((?:\\[^\\]+)*)\s*$/i);
+    if (key) out[(key[1].replace(/^\\/, '') ? key[1].replace(/^\\/, '') + '\\' : '') + name] = value;
+  };
+  try {
+    const json = execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', PS_DUMP], { encoding: 'utf8', windowsHide: true, timeout: 8000, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    if (!json) return out;
+    for (const r of [].concat(JSON.parse(json))) put(r.k, r.n, r.v);
+    return out;
+  } catch { /* no PowerShell: fall back to reg query */ }
   let text;
   try {
-    text = execFileSync('reg', ['query', `HKCU\\Software\\${ORG}\\Moonlight\\hosts`, '/s'], { encoding: 'utf8', windowsHide: true, timeout: 4000 });
+    text = execFileSync('reg', ['query', `HKCU\\Software\\${ORG}\\Moonlight\\hosts`, '/s'], { encoding: 'utf8', windowsHide: true, timeout: 4000, stdio: ['ignore', 'pipe', 'ignore'] });
   } catch { return out; }
   let prefix = null;
   for (const line of text.split(/\r?\n/)) {
-    const key = line.match(/\\hosts((?:\\[^\\]+)*)\s*$/i);
-    if (/^HKEY_/i.test(line) && key) { prefix = key[1].replace(/^\\/, ''); continue; }
-    const val = line.match(/^\s+(\S+)\s+REG_\w+\s+(.*)$/);
-    if (val && prefix !== null) out[(prefix ? prefix + '\\' : '') + val[1]] = val[2].trim();
+    if (/^HKEY_/i.test(line)) { prefix = /\\hosts((?:\\[^\\]+)*)\s*$/i.test(line) ? line.trim() : null; continue; }
+    const val = line.match(/^\s+(\S+)\s+(REG_\w+)\s+(.*)$/);
+    if (val && prefix !== null) put(prefix, val[1], regValue(val[2], val[3].trim()));
   }
   return out;
 }
@@ -327,4 +352,4 @@ class Moonlight {
   }
 }
 
-module.exports = { Moonlight, parseListCsv, hostsFromFlat, readIniHosts };
+module.exports = { Moonlight, parseListCsv, hostsFromFlat, readIniHosts, regValue, readRegistryHosts };
