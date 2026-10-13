@@ -9,7 +9,7 @@
 #>
 param(
   [string]$Source = $PSScriptRoot,
-  [string]$Installer = 'NostalgiaConsole Setup 0.3.0.exe',
+  [string]$Installer = 'NostalgiaConsole Setup 0.4.0.exe',
   [string]$InstallerSha256 = '',
   [string]$Cover = 'nostalgiaconsole-boxart.png',
   [switch]$NoInstall,

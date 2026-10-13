@@ -146,8 +146,9 @@ body[data-theme="midnight"] #gamercard, body[data-theme="ember"] #gamercard {
 .ch-title {
   position: absolute; left: var(--x0); bottom: 100%;
   margin: 0 0 clamp(10px, 1.6vh, 18px);
-  font-size: clamp(30px, 6.4vh, 66px); font-weight: 300; letter-spacing: -.02em;
+  font-size: clamp(32px, 7vh, 72px); font-weight: 200; letter-spacing: -.01em;
   color: var(--title); text-transform: lowercase; white-space: nowrap;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, .45);
   transition: color .3s;
 }
 .channel:not(.current) .ch-title { color: var(--dim); }
@@ -158,7 +159,7 @@ body[data-theme="midnight"] #gamercard, body[data-theme="ember"] #gamercard {
 .tile {
   position: absolute; left: 0; top: 0; width: var(--tw); height: var(--th);
   transform-origin: 0 50%;
-  border-radius: 5px; overflow: hidden;
+  border-radius: 9px; overflow: hidden;
   border: 3px solid var(--tile-line);
   background: linear-gradient(160deg, var(--c1, #6d7a84), var(--c2, #2c353b));
   box-shadow: 0 14px 30px -14px var(--shadow), 0 2px 6px rgba(0, 0, 0, .15);
@@ -168,16 +169,18 @@ body[data-theme="midnight"] #gamercard, body[data-theme="ember"] #gamercard {
 }
 .channel.current .tile.focused {
   border-color: #fff;
-  box-shadow: 0 0 0 3px var(--accent), 0 0 34px 4px color-mix(in srgb, var(--accent) 60%, transparent), 0 20px 40px -18px var(--shadow);
-  animation: pulse 2.2s ease-in-out infinite;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .9), 0 0 28px 6px rgba(255, 255, 255, .75), 0 26px 46px -18px var(--shadow);
+  animation: pulse 2.4s ease-in-out infinite;
 }
 @keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 3px var(--accent), 0 0 26px 2px color-mix(in srgb, var(--accent) 45%, transparent), 0 20px 40px -18px var(--shadow); }
-  50% { box-shadow: 0 0 0 3px var(--accent), 0 0 44px 8px color-mix(in srgb, var(--accent) 70%, transparent), 0 20px 40px -18px var(--shadow); }
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 255, 255, .9), 0 0 20px 3px rgba(255, 255, 255, .55), 0 26px 46px -18px var(--shadow); }
+  50% { box-shadow: 0 0 0 2px #fff, 0 0 36px 9px rgba(255, 255, 255, .85), 0 26px 46px -18px var(--shadow); }
 }
 .gloss {
   position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(165deg, rgba(255, 255, 255, .42) 0%, rgba(255, 255, 255, .08) 34%, transparent 35%, transparent 100%);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .3) 0%, rgba(255, 255, 255, .06) 46%, transparent 47%, transparent 100%),
+    linear-gradient(0deg, rgba(0, 0, 0, .14), transparent 28%);
   mix-blend-mode: screen;
 }
 
@@ -553,3 +556,15 @@ body[data-theme="midnight"] #gamercard, body[data-theme="ember"] #gamercard {
 }
 .aved-opt .aved-mini { width: 100%; height: 100%; }
 .aved-opt.swatch i { width: 62%; height: 62%; border-radius: 50%; box-shadow: inset 0 -6px 10px rgba(0, 0, 0, .25), inset 0 4px 6px rgba(255, 255, 255, .45), 0 2px 6px rgba(0, 0, 0, .3); }
+
+#avatar canvas, .aved-figure canvas { width: 100%; height: 100%; display: block; }
+.aved-stage { cursor: grab; touch-action: none; }
+.avatar-tile img { width: 100%; height: 100%; object-fit: contain; }
+img.gamerpic-av { width: 100%; height: 100%; object-fit: cover; display: block; background: radial-gradient(circle at 50% 30%, #f4fff0, #a9dc72 75%); }
+.aved-opt img.aved-mini { width: 100%; height: 100%; object-fit: contain; }
+
+/* --avatar-shot render mode: just the avatar on a transparent page */
+body.avatar-shot, body.avatar-shot #bg { background: transparent !important; }
+body.avatar-shot > :not(#shot) { display: none !important; }
+#shot { position: fixed; inset: 0; }
+#shot canvas { width: 100%; height: 100%; display: block; }

@@ -7,9 +7,14 @@ import { writeFileSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { avatarSvg } from '../../src/renderer/avatar.js';
+// The avatar is the app's own 3D avatar, rendered by Electron to a PNG.
 
 const here = dirname(fileURLToPath(import.meta.url));
+const root = join(here, '..', '..');
+const avatarPng = join(here, 'avatar.png');
+execFileSync(join(root, 'node_modules', '.bin', 'electron'), [root, '--no-sandbox', '--capture=' + avatarPng, '--size=400x800', '--delay=1500',
+  '--user-data=' + join(root, 'test', '.ud-boxart'), '--avatar-shot=' + JSON.stringify({ hat: 'headphones', hatColor: '#2b2f33' })], { stdio: 'ignore' });
+const avatarData = 'data:image/png;base64,' + readFileSync(avatarPng).toString('base64');
 const orb = readFileSync(join(here, '..', '..', 'src', 'renderer', 'logo.svg'), 'utf8').replace(/<\?xml[^>]*>/, '');
 
 const tiles = [
@@ -46,11 +51,11 @@ svg.rib{position:absolute;left:0;top:0}
 .row{position:absolute;left:0;top:118px;width:600px;height:141px}
 .row i{position:absolute;width:250px;height:141px;border:3px solid #fff;border-radius:5px;transform-origin:0 50%;box-sizing:border-box;
   box-shadow:0 10px 18px -8px rgba(30,50,60,.55);-webkit-box-reflect:below 4px linear-gradient(transparent 70%,rgba(255,255,255,.25))}
-.row i:first-child{box-shadow:0 0 0 3px #6cbf24,0 0 26px 4px rgba(108,191,36,.6)}
+.row i:first-child{box-shadow:0 0 0 2px #fff,0 0 26px 6px rgba(255,255,255,.85)}
 .row i::after{content:"";position:absolute;inset:0;background:linear-gradient(165deg,rgba(255,255,255,.45) 0%,rgba(255,255,255,.08) 34%,transparent 35%)}
 .cap{position:absolute;left:36px;top:300px;color:#2f373c}
 .cap b{display:block;font-size:20px}.cap span{font-size:14px;color:#6a757c}
-.avatar{position:absolute;right:30px;top:268px;width:150px;height:300px;z-index:20}
+.avatar{position:absolute;right:14px;top:250px;width:170px;height:340px;z-index:20}
 .avatar svg{width:100%;height:100%}
 .logo{position:absolute;left:0;right:0;bottom:88px;text-align:center;font-size:50px;font-weight:300;letter-spacing:2px;color:#8a9196;text-shadow:0 2px 0 rgba(255,255,255,.6)}
 .logo b{font-weight:300;color:#5cb31d}
@@ -72,7 +77,7 @@ svg.rib{position:absolute;left:0;top:0}
   <div class="title">spotlight</div>
   <div class="row">${tiles}</div>
   <div class="cap"><b>your games</b><span>steam · non-steam · moonlight</span></div>
-  <div class="avatar">${avatarSvg({ hat: 'headphones', hatColor: '#2b2f33' })}</div>
+  <div class="avatar"><img src="${avatarData}" style="width:100%;height:100%"></div>
   <div class="logo"><b>NOSTALGIA</b>CONSOLE</div>
   <div class="sub">the dashboard for your steam library</div>
   <div class="hint"><span><em style="background:#5dbb1f">A</em>play</span><span><em style="background:#e0262c">B</em>back</span><span><em style="background:#f0b000">Y</em>pin</span></div>

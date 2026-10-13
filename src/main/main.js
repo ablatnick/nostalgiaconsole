@@ -25,6 +25,7 @@ const opts = {
   size: arg('size'),
   delay: Number(arg('delay') || 2500),
   windowed: !!arg('windowed'),
+  avatarShot: arg('avatar-shot'),
 };
 if (arg('user-data')) app.setPath('userData', path.resolve(arg('user-data')));
 
@@ -167,7 +168,8 @@ function createWindow() {
     height: h || 800,
     fullscreen,
     show: !opts.capture,
-    backgroundColor: '#dfe3e6',
+    backgroundColor: opts.avatarShot ? '#00000000' : '#dfe3e6',
+    transparent: !!opts.avatarShot,
     autoHideMenuBar: true,
     title: 'NostalgiaConsole',
     icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
@@ -185,7 +187,9 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.on('focus', () => refreshSoon());
-  win.loadURL('nostalgia://ui/index.html' + (opts.capture ? '?capture=1' + (arg('intro') ? '&intro=1' : '') : ''));
+  let query = opts.capture ? '?capture=1' + (arg('intro') ? '&intro=1' : '') : '';
+  if (opts.capture && opts.avatarShot) query += '&avatarShot=1&look=' + encodeURIComponent(typeof opts.avatarShot === 'string' ? opts.avatarShot : '{}');
+  win.loadURL('nostalgia://ui/index.html' + query);
   if (opts.capture) runCapture();
 }
 

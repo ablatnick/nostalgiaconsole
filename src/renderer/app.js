@@ -2,6 +2,21 @@ import { startInput } from './input.js';
 import * as sound from './sound.js';
 import { icon } from './icons.js';
 import { avatarSvg, PARTS, VIEW_HEAD, VIEW_FULL, normalizeLook, randomLook } from './avatar.js';
+import { AvatarView, snapshot, webglAvailable } from './avatar3d.js';
+
+// 3D avatars when WebGL works, the flat drawing otherwise.
+const GL = webglAvailable();
+const picCache = new Map();
+function avatarPic(lk, view = 'head', size = 128, cls = 'gamerpic-av') {
+  if (!GL) return avatarSvg(lk, { viewBox: view === 'head' ? VIEW_HEAD : VIEW_FULL, cls });
+  const key = JSON.stringify([lk, view, size]);
+  if (!picCache.has(key)) {
+    if (picCache.size > 200) picCache.clear();
+    picCache.set(key, snapshot(lk, { view, size }));
+  }
+  return `<img class="${cls}" alt="" src="${picCache.get(key)}">`;
+}
+let dashAvatar = null;
 
 const api = window.nostalgia;
 const params = new URLSearchParams(location.search);
@@ -385,7 +400,7 @@ function tileEl(t) {
   } else if (t.type === 'avatar') {
     e.style.setProperty('--c1', '#9fd85f');
     e.style.setProperty('--c2', '#3f8f0e');
-    e.append(el('div', 'avatar-tile', avatarSvg(look(), { viewBox: VIEW_HEAD })));
+    e.append(el('div', 'avatar-tile', avatarPic(look(), 'full', 256)));
     e.append(el('div', 'tile-label', `<b>${esc(t.label)}</b><span>${esc(t.value)}</span>`));
   } else if (t.type === 'profile') {
     const u = state.lib.user;
@@ -476,6 +491,7 @@ function placeAvatar(m) {
   av.style.left = (m.vw - w - Math.max(24, m.vw * 0.035)) + 'px';
   av.style.top = (m.top + m.th + 64 - h) + 'px';
   av.classList.toggle('show', avatarShown());
+  if (dashAvatar) { if (avatarShown()) dashAvatar.start(); else dashAvatar.stop(); }
 }
 
 function look() {
@@ -483,11 +499,21 @@ function look() {
 }
 
 function dressAvatar() {
-  $('#avatar').innerHTML = avatarSvg(look());
-  for (const e of document.querySelectorAll('.tile .avatar-tile')) e.innerHTML = avatarSvg(look(), { viewBox: VIEW_HEAD });
+  if (GL) {
+    if (!dashAvatar) {
+      const c = document.createElement('canvas');
+      $('#avatar').replaceChildren(c);
+      dashAvatar = new AvatarView(c);
+    }
+    dashAvatar.setLook(look());
+  } else {
+    $('#avatar').innerHTML = avatarSvg(look());
+  }
+  for (const e of document.querySelectorAll('.tile .avatar-tile')) e.innerHTML = avatarPic(look(), 'full', 256);
 }
 
 function wave() {
+  if (dashAvatar) { dashAvatar.wave(); return; }
   const av = $('#avatar');
   av.classList.remove('wave');
   void av.offsetWidth;
@@ -629,10 +655,10 @@ function fillGamerpic(box, user) {
     const img = new Image();
     img.alt = '';
     img.src = `nostalgia://art/avatar/${user.steamId64}/img?v=${state.avatarStamp}`;
-    img.onerror = () => { box.innerHTML = avatarSvg(look(), { viewBox: VIEW_HEAD, cls: 'gamerpic-av' }); };
+    img.onerror = () => { box.innerHTML = avatarPic(look()); };
     box.append(img);
   } else {
-    box.innerHTML = avatarSvg(look(), { viewBox: VIEW_HEAD, cls: 'gamerpic-av' });
+    box.innerHTML = avatarPic(look());
   }
 }
 
@@ -651,6 +677,7 @@ function tickClock() {
 
 function renderHints() {
   $('#avatar').classList.toggle('show', avatarShown());
+  if (dashAvatar) { if (avatarShown()) dashAvatar.start(); else dashAvatar.stop(); }
   const top = state.overlays[state.overlays.length - 1];
   const hints = top ? top.hints() : dashHints();
   $('#hints').innerHTML = hints.map(([b, label]) =>
@@ -967,7 +994,24 @@ function openAvatarEditor() {
 
   function opts(p) { return p.values || p.colors; }
 
+  let view3d = null;
+  if (GL) {
+    const c = document.createElement('canvas');
+    figure.append(c);
+    view3d = new AvatarView(c);
+    view3d.start();
+    let drag = null;
+    stage.addEventListener('pointerdown', (e) => { drag = e.clientX; stage.setPointerCapture(e.pointerId); });
+    stage.addEventListener('pointermove', (e) => { if (drag !== null) { view3d.rotateBy((e.clientX - drag) / 120); drag = e.clientX; } });
+    stage.addEventListener('pointerup', () => { drag = null; });
+  }
+
   function drawFigure() {
+    if (view3d) {
+      view3d.setLook(cur);
+      view3d.setView(PARTS[cat].face ? 'head' : 'full');
+      return;
+    }
     figure.innerHTML = avatarSvg(cur);
     figure.classList.toggle('face', !!PARTS[cat].face);
   }
@@ -980,7 +1024,7 @@ function openAvatarEditor() {
     list.forEach((v, k) => {
       const card = el('div', 'aved-opt' + (k === at ? ' on' : '') + (p.colors ? ' swatch' : ''));
       if (p.colors) card.append(el('i', '', ''));
-      else card.innerHTML = avatarSvg({ ...cur, [p.key]: v }, { viewBox: p.face ? VIEW_HEAD : VIEW_FULL, cls: 'aved-mini' });
+      else card.innerHTML = avatarPic({ ...cur, [p.key]: v }, p.face ? 'head' : 'full', 160, 'aved-mini');
       if (p.colors) card.querySelector('i').style.background = v;
       card.addEventListener('click', () => { choose(k); sound.play('move'); });
       strip.append(card);
@@ -1033,13 +1077,15 @@ function openAvatarEditor() {
       else if (a === 'down') { pickCat(cat + 1); sound.play('move'); }
       else if (a === 'left') step(-1);
       else if (a === 'right') step(1);
+      else if ((a === 'lt' || a === 'rt') && view3d) view3d.rotateBy(a === 'lt' ? -0.6 : 0.6);
       else if (a === 'lb') { pickCat(PARTS.findIndex((p) => p.group !== PARTS[cat].group)); sound.play('channel'); }
       else if (a === 'rb') { pickCat(PARTS.findIndex((p) => p.group !== PARTS[cat].group)); sound.play('channel'); }
-      else if (a === 'y') { cur = normalizeLook(randomLook()); drawFigure(); drawStrip(); sound.play('select'); figure.classList.remove('pop'); void figure.offsetWidth; figure.classList.add('pop'); }
+      else if (a === 'y') { cur = normalizeLook(randomLook()); drawFigure(); drawStrip(); sound.play('select'); if (view3d) view3d.wave(); figure.classList.remove('pop'); void figure.offsetWidth; figure.classList.add('pop'); }
       else if (a === 'x') { cur = { ...orig }; drawFigure(); drawStrip(); sound.play('back'); }
       else if (a === 'a' || a === 'b' || a === 'start') save();
     },
-    hints: () => [['a', 'save'], ['y', 'random'], ['x', 'undo changes'], ['lb', 'features / style'], ['b', 'save & exit']],
+    hints: () => [['a', 'save'], ['y', 'random'], ['x', 'undo changes'], ['lt', 'turn'], ['lb', 'features / style'], ['b', 'save & exit']],
+    onClose: () => { if (view3d) { view3d.stop(); view3d.renderer.dispose(); } },
   });
 }
 
@@ -1098,7 +1144,23 @@ window.addEventListener('resize', () => layout());
 
 // ---------- boot ----------
 
+// Renders one avatar for the Moonlight cover (main's --avatar-shot mode).
+function avatarShot() {
+  document.body.classList.add('avatar-shot');
+  const box = el('div', '');
+  box.id = 'shot';
+  const c = document.createElement('canvas');
+  box.append(c);
+  document.body.append(box);
+  let lookIn = {};
+  try { lookIn = JSON.parse(params.get('look') || '{}'); } catch { /* default look */ }
+  const v = new AvatarView(c, { animate: false });
+  v.setLook(lookIn);
+  v.render();
+}
+
 async function boot() {
+  if (params.has('avatarShot')) { avatarShot(); return; }
   const [lib, settings] = await Promise.all([api.getLibrary(), api.getSettings()]);
   state.lib = lib;
   state.settings = settings;
