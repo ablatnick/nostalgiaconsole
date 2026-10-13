@@ -42,6 +42,10 @@ body[data-look="xmb"] #hints { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0,
 .xmb-items { position: absolute; inset: 0; -webkit-mask-image: linear-gradient(#000 0 84%, transparent 92%); mask-image: linear-gradient(#000 0 84%, transparent 92%); }
 
 /* ---------- channels ---------- */
+/* Nunito (SIL Open Font License, fonts/nunito-OFL.txt), a rounded face like
+   the Wii menu's lettering. Latin subset, all weights. */
+@font-face { font-family: "NC Rounded"; src: url("../fonts/nunito.woff2") format("woff2"); font-weight: 200 1000; font-display: block; }
+.wii, .wii button { font-family: "NC Rounded", var(--font); }
 body[data-look="wii"] { background: #eceef0; }
 body[data-look="wii"] #top { display: none; }
 body[data-look="wii"] #hints { color: #8a9298; text-shadow: none; bottom: auto; top: 1.4vh; left: auto; right: 2.4vw; font-size: clamp(11px, 1.5vh, 15px); gap: 1.4vw; opacity: .85; }
@@ -94,7 +98,7 @@ body[data-look="wii"] #hints { color: #8a9298; text-shadow: none; bottom: auto; 
   background: radial-gradient(circle at 50% 30%, #fff 0, #f2f4f6 55%, #dfe4e8 100%);
   box-shadow: 0 0 0 2px #c7cdd2, 0 0 0 6px #f4f6f7, 0 0 0 7.5px #cfd5da, 0 4px 10px rgba(0, 0, 0, .12); transition: box-shadow .18s, color .18s; }
 .wii-round .ico { width: 44%; height: 44%; }
-.wii-mark { font-size: 5.4vh; font-weight: 700; font-style: italic; letter-spacing: -.02em; color: inherit; }
+.wii-mark { font-size: 5.6vh; font-weight: 800; letter-spacing: -.02em; color: inherit; }
 .wii-round.left { left: 4.2vw; } .wii-round.right { right: 4.2vw; }
 .wii-round.on { color: #2fa9e0; box-shadow: 0 0 0 2px #fff, 0 0 0 6px #4ac6f2, 0 0 18px 7px rgba(74, 198, 242, .55); }
 .wii-preview { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .25s;

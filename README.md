@@ -249,7 +249,9 @@ If NostalgiaConsole is useful to you, you can support it and other projects on [
 ## License
 
 [MIT](LICENSE). Bundled three.js and hls.js keep their own licenses
-(`src/renderer/vendor/*-LICENSE.txt`).
+(`src/renderer/vendor/*-LICENSE.txt`), and the Nunito font used by the
+channels style is under the SIL Open Font License
+(`src/renderer/fonts/nunito-OFL.txt`).
 
 NostalgiaConsole is a fan project. It isn't affiliated with Microsoft, Xbox,
 Valve or the Moonlight project, and it ships no assets from them.
