@@ -34,8 +34,13 @@ Screenshots use the test library from `test/make-fixture.js` (rendered with
 - A 3D **avatar** that stands beside the steam pivot. Build it in the
   **my avatar** editor: body type, skin, hair, eyes, eyebrows, mouth, facial
   hair, glasses, hats and clothes, with a live preview. Y gives you a random
-  avatar. There are costumes too (power armor, bounty hunter, caped hero,
-  animal hoodies, robot, astronaut, knight, wizard and more).
+  avatar. Pick your height, 15 hair styles, face markings, 8 kinds of
+  glasses, 12 hats, suits, flannels, overalls and more, plus extras like a
+  scarf, backpack or watch. There are 25 costumes too: power armor, bounty
+  hunter, caped hero, ninja, samurai, viking, knight, pirate, cowboy, chef,
+  firefighter, scientist, astronaut, pilot, trooper, robot, fox/cat/bear and
+  dino hoodies, zombie, mummy, robe, wizard and alien, each with a costume
+  color.
 - **Gamerpics**: your Steam picture, your avatar's head, or any picture you
   put in the `gamerpics` folder in the user data folder.
 - A **guide** with a gamercard and tabs (home, games, streaming, settings),
