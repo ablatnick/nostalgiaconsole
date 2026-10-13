@@ -2,9 +2,14 @@
 # Regenerates the README screenshots in docs/screenshots (1280x720)
 # from the test library and test/web-fixture.json.
 # Usage: test/readme-shots.sh [name ...]   (no names = all)
+#   OUT=dir       write somewhere else (the CI smoke test does)
+#   SETTINGS=json extra settings, e.g. SETTINGS='"tileSize":"tiny",'
+# Exits non-zero if any page logged an error or a shot is missing.
 cd "$(dirname "$0")/.."
-out=docs/screenshots
+out=${OUT:-docs/screenshots}
 ud=test/.userdata-readme
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
 mkdir -p "$out"
 
 # The same four profiles every run, so the sign-in shot has a lineup.
@@ -20,11 +25,12 @@ shot() {
   shift 2; [ $# -gt 0 ] && shift
   if [ -n "$only" ] && ! echo " $only " | grep -q " $name "; then return; fi
   rm -rf "$ud"; mkdir -p "$ud"
-  printf '{"theme":"%s","intro":true,"moonlight":false,%s}\n' "$theme" "$PROFILES" > "$ud/settings.json"
+  printf '{"theme":"%s","intro":true,"moonlight":false,%s%s}\n' "$theme" "${SETTINGS:-}" "$PROFILES" > "$ud/settings.json"
   echo "$name"
   # Extra args go first: the app reads the first copy of each flag.
   timeout 90 npx electron . "$@" --no-sandbox --steam-root=test/fixture/Steam --user-data="$ud" \
-    --web-fixture=test/web-fixture.json --capture="$out/$name.png" --keys="$keys" --size=1280x720 --delay=3500 2>&1 | grep -iv 'gtk\|dbus\|gles\|viz'
+    --web-fixture=test/web-fixture.json --capture="$out/$name.png" --keys="$keys" --size=1280x720 --delay=3500 2>&1 | grep -iv 'gtk\|dbus\|gles\|viz' | tee -a "$log"
+  [ "$out/$name.png" -nt "$log" ] || echo "[missing] $name.png" | tee -a "$log"
 }
 
 only="$*"
@@ -44,3 +50,4 @@ shot signin 'G,Down,Down,Down,Down,Return,Right,wait2500'
 shot midnight '' midnight
 shot boot '' classic --intro --delay=900
 rm -rf "$ud"
+if grep -q '^\[page\|^\[missing' "$log"; then echo 'FAILED: see the messages above'; exit 1; fi

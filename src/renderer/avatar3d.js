@@ -1396,7 +1396,9 @@ export class AvatarLineup {
     scene.children.filter((o) => o.isMesh && !this.actors.some((a) => a.group === o)).forEach((o) => { o.visible = false; });
   }
 
-  slots(fractions) { this.fractions = fractions; }
+  // fractions: each avatar's slot centre (0..1 of the width); count: how
+  // many slots share the width, so avatars shrink to fit narrow ones.
+  slots(fractions, count = fractions.length) { this.fractions = fractions; this.slotCount = count; }
 
   focus(i) {
     if (i === this.focused) return;
@@ -1410,13 +1412,15 @@ export class AvatarLineup {
     const dist = cam.position.z;
     const halfW = Math.tan((cam.fov * Math.PI) / 360) * dist * cam.aspect;
     const n = this.actors.length;
+    // An avatar is about 0.8 wide with its arms out a little.
+    const fit = Math.min(1, (2 * halfW) / (this.slotCount || n) / 0.8);
     this.actors.forEach((a, i) => {
       const f = this.fractions && this.fractions[i] != null ? this.fractions[i] : (i + 0.5) / n;
       const on = i === this.focused;
       // Ease towards the slot; the focused avatar steps forward.
       a.x += ((f * 2 - 1) * halfW - a.x) * 0.15;
       a.z += ((on ? 0.2 : 0) - a.z) * 0.12;
-      a.scale += ((on ? 0.92 : 0.82) - a.scale) * 0.12;
+      a.scale += ((on ? 0.92 : 0.82) * fit - a.scale) * 0.12;
       a.group.position.set(a.x * (dist - a.z) / dist, 0, a.z);
       a.group.scale.setScalar(a.scale);
       poseActor(a, now);

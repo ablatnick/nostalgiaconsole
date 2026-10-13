@@ -70,3 +70,56 @@ test('settings are sanitized', () => {
   assert.deepStrictEqual(s.pinned, ['steam:1']);
   assert.strictEqual(s.afterLaunch, 'close');
 });
+
+test('customize settings are sanitized', () => {
+  const s = sanitize({
+    tileColor: 'teal', bgColor: 'url(evil)', tileSize: 'tiny', textSize: 'gigantic',
+    hiddenTabs: ['video', 'video', 'home', 'settings', 'social', 3], recentCount: 3, friendCount: 999, cycleTiles: false,
+  });
+  assert.strictEqual(s.tileColor, 'teal');
+  assert.strictEqual(s.bgColor, '');
+  assert.strictEqual(s.tileSize, 'tiny');
+  assert.strictEqual(s.textSize, 'normal');
+  // home and settings can never be hidden
+  assert.deepStrictEqual(s.hiddenTabs, ['video', 'social']);
+  assert.strictEqual(s.recentCount, 3);
+  assert.strictEqual(s.friendCount, 24);
+  assert.strictEqual(s.cycleTiles, false);
+});
+
+test('colors follow the profile, layout stays shared', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const { Settings } = require('../src/main/settings');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-settings-'));
+  try {
+    const st = new Settings(dir);
+    st.update({ tileColor: 'red', tileSize: 'small' });
+    st.createProfile('two');
+    assert.strictEqual(st.values.tileColor, '');
+    st.update({ tileColor: 'blue' });
+    st.switchProfile('p1');
+    assert.strictEqual(st.values.tileColor, 'red');
+    assert.strictEqual(st.values.tileSize, 'small');
+    st.switchProfile('p2');
+    assert.strictEqual(st.values.tileColor, 'blue');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the renderer offers exactly the customize values settings accept', () => {
+  const fs = require('fs');
+  const S = require('../src/main/settings');
+  const app = fs.readFileSync(path.join(__dirname, '../src/renderer/app.js'), 'utf8');
+  const keysOf = (name) => {
+    const m = app.match(new RegExp(`const ${name} = \\{([\\s\\S]*?)\\n?\\};`));
+    assert.ok(m, name);
+    return [...m[1].matchAll(/(?:^|[\s,{])([a-z]+):/g)].map((x) => x[1]);
+  };
+  assert.deepStrictEqual(keysOf('TILE_HEX'), S.TILE_COLORS.filter(Boolean));
+  assert.deepStrictEqual(keysOf('BG_HEX'), S.BG_COLORS.filter(Boolean));
+  assert.deepStrictEqual(keysOf('TILE_SIZES'), S.TILE_SIZES);
+  assert.deepStrictEqual(keysOf('TEXT_SIZES'), S.TEXT_SIZES);
+  assert.deepStrictEqual(keysOf('TAB_NAMES'), S.TABS);
+});

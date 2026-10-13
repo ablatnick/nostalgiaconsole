@@ -7,3 +7,4 @@ test/fixture/
 !docs/*.png
 test/.userdata/
 test/.ud-*/
+smoke/

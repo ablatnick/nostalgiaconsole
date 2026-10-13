@@ -33,7 +33,7 @@ const TILE_HEX = {
 const BG_HEX = {
   silver: ['#8c969d', '#a3acb2', '#bfc6ca'], graphite: ['#3f4549', '#353a3e', '#2a2e31'], black: ['#141516', '#0c0d0e', '#050505'],
   navy: ['#1d2c4a', '#14203a', '#0b1326'], forest: ['#2b4a30', '#1f3623', '#132216'], plum: ['#46304f', '#33223a', '#211625'],
-  wine: ['#561e28', '#3c141b', '#250b10'], sand: ['#c9b893', '#d8cba9', '#e6dcc3'],
+  wine: ['#561e28', '#3c141b', '#250b10'], sand: ['#a8946a', '#b8a57c', '#c9b892'],
 };
 const TILE_SIZES = { huge: 1.15, large: 1, medium: 0.85, small: 0.72, tiny: 0.6 };
 const TEXT_SIZES = { small: 0.85, normal: 1, large: 1.2 };
@@ -634,14 +634,15 @@ function metrics() {
   const vh = window.innerHeight;
   // Tile size from 0.5.0 (readable on a TV), with the console's tight gaps.
   const g = Math.max(3, Math.round(vh * 0.005));
-  const gridH = Math.min(vh * 0.6, vw * 0.36) * (TILE_SIZES[state.settings.tileSize] || 1);
+  const fullH = Math.min(vh * 0.6, vw * 0.36);
+  const gridH = fullH * (TILE_SIZES[state.settings.tileSize] || 1);
   const v = (gridH - 2 * g) / ROWS;
   const u = v * 1.32;
   const homeCols = 4;
   const homeW = homeCols * u + (homeCols - 1) * g;
   const x0 = Math.max(40, (vw - homeW) / 2);
   // Neighbouring pivots only peek in from the screen edges.
-  return { vw, vh, g, u, v, x0, top: Math.max(120, vh * 0.2), gap: Math.max(u * 0.62, x0 - u * 0.45) };
+  return { vw, vh, g, u, v, x0, top: Math.max(120, vh * 0.2) + Math.max(0, fullH - gridH) / 2, gap: Math.max(u * 0.62, x0 - u * 0.45) };
 }
 
 // Pivot start columns in strip pixels.
@@ -1477,7 +1478,8 @@ function openSignIn({ startup = false } = {}) {
   const grid = el('div', GL ? 'si-stage' : 'lib-grid pic-grid');
   const cap = el('div', 'lib-caption');
   panel.append(grid, cap);
-  const items = [...profiles.map((p) => ({ p })), { add: true }];
+  // Settings keep at most 8 profiles.
+  const items = [...profiles.map((p) => ({ p })), ...(state.settings.profiles.length < 8 ? [{ add: true }] : [])];
   let i = Math.max(0, profiles.findIndex((p) => p.id === state.settings.profile));
   // With WebGL everyone's avatar stands on one stage, idling, with a name
   // plate under each; otherwise gamerpic cards.
@@ -1488,7 +1490,8 @@ function openSignIn({ startup = false } = {}) {
     grid.append(canvas);
     lineup = new AvatarLineup(canvas);
     lineup.setLooks(profiles.map((p) => normalizeLook(p.avatarLook)));
-    lineup.slots(items.slice(0, -1).map((_, k) => (k + 0.5) / items.length));
+    lineup.slots(profiles.map((_, k) => (k + 0.5) / items.length), items.length);
+    grid.classList.toggle('many', items.length > 5);
   }
   const cards = items.map((it, k) => {
     const c = GL

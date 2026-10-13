@@ -26,8 +26,8 @@ Screenshots use the test library from `test/make-fixture.js` and
 
 ## Features
 
-- **Pivots** across the top: search, home, games, apps, streaming, steam
-  and settings, each a grid of tiles three tall. LB/RB switch pivots, and
+- **Pivots** across the top: search, home, games, apps, video, streaming,
+  social, steam and settings, each a grid of tiles three tall. LB/RB switch pivots, and
   moving off a grid's edge slides into the next one. Home has your last
   game, pins, recent games, a big "continue" tile and two tiles that cycle
   through your library.
@@ -49,16 +49,23 @@ Screenshots use the test library from `test/make-fixture.js` and
 - **Gamerscore and achievements**, read from Steam's own files (no key
   needed): a G total on your gamercard, achievements per game, and
   "achievement unlocked" pop-ups that show over your game.
-- **Social**: your Steam friends from Steam's cache, with online status
-  from their public profiles.
+- **Social**: a compact friends list of your Steam friends (picture, name
+  and what they're playing), in-game and online friends first, with online
+  status from their public profiles.
 - **Video**: your Jellyfin server's continue watching, next up, movies and
   shows, with a built-in player that syncs your progress, and "open in
   jellyfin" for Watch Party.
 - **Search** with a console-style on-screen keyboard, owned games that
   aren't installed (with install), and download progress and "download
   complete" pop-ups.
-- **Profiles** with a "who's playing?" sign-in, each with its own avatar,
-  gamerpic, pins and theme.
+- **Profiles** with a "who's playing?" sign-in where everyone's 3D avatar
+  stands side by side and idles (stretching, checking a watch, waving). Each
+  profile has its own avatar, gamerpic, pins, theme and colors.
+- **Customize** (settings > customize): tile color, background color,
+  tile size (huge to tiny, so more fits on screen), text size, which tabs
+  show (hide video, streaming, social and the rest), how many recent games
+  and friends to show, and whether the home tiles cycle. Changes show
+  straight away; Y resets them.
 - **Gamerpics**: your Steam picture, your avatar's head, or any picture you
   put in the `gamerpics` folder in the user data folder.
 - A **guide** with a gamercard and tabs (home, games, streaming, settings),
@@ -81,8 +88,9 @@ installed and logged in. NostalgiaConsole never opens any other URL.
 | B | Esc / Backspace / right-click | Back (on the dashboard: go home) |
 | X | X | Play now |
 | Y | Y | Pin / unpin (otherwise opens the game library) |
-| LB / RB | Q / E | Skip 5 tiles, or change sort in the library |
-| View / Back | Tab / G | Guide (LB/RB switch tabs) |
+| LB / RB | Q / E | Switch pivots, or change sort in the library |
+| Menu / Start | M | Game details |
+| View / Back, Guide | Tab, G / Home | Guide (LB/RB switch tabs) |
 | | F11 | Full screen |
 
 ## Install
@@ -184,7 +192,8 @@ looks at the latest release.
 npm install
 npm start                 # windowed, using your real Steam library
 npm test                  # parsers, library scan, Moonlight, settings
-test/shot.sh out.png "Down,Enter" 1280x800 midnight   # offscreen screenshot
+test/shot.sh out.png "Down,Return" 1280x800 midnight  # offscreen screenshot
+test/readme-shots.sh      # every screen, into docs/screenshots (CI runs it too)
 npm run dist:linux        # AppImage + tar.gz
 npm run dist:win          # needs Wine, or use the electronuserland/builder:wine image
 ```
@@ -195,6 +204,10 @@ stats, shortcuts) that the tests and `test/shot.sh` use.
 On Linux the AppImage starts Electron with `--no-sandbox`. Ubuntu 24.04+
 blocks the Chromium sandbox for AppImages. The UI only loads its own bundled
 files through a locked-down custom protocol, with a strict CSP.
+
+## Support
+
+If NostalgiaConsole is useful to you, you can support it and other projects on [Venmo (@ablatnick)](https://venmo.com/u/ablatnick).
 
 NostalgiaConsole is a fan project. It isn't affiliated with Microsoft, Xbox,
 Valve or the Moonlight project, and it ships no assets from them.

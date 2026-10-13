@@ -1,0 +1,32 @@
+# Unit tests, then every screen rendered offscreen against the test
+# library (fails on any page error). The screenshots are kept as an
+# artifact so a run can be checked by eye.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Smoke test every screen
+        run: xvfb-run -a test/readme-shots.sh
+        env:
+          OUT: smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-screenshots
+          path: smoke/*.png

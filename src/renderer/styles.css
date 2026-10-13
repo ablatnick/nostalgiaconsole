@@ -635,7 +635,7 @@ body.has-overlay #hints { color: var(--dim); text-shadow: none; }
 .tile.t-friend .t-cap { position: static; flex: 1; min-width: 0; padding: 0 12px 0 14px; background: none; text-shadow: none; }
 .tile.t-friend .t-cap b { font-size: clamp(12px, 2vh, 21px); }
 .tile.t-friend .t-cap span { font-size: clamp(10px, 1.35vh, 14px); }
-.tile.t-friend.offline { background: rgba(255, 255, 255, .22); }
+.tile.t-friend.offline { background: rgba(70, 80, 88, .5); }
 .tile.t-friend.offline .f-pic { filter: grayscale(.8) brightness(.8); }
 .tile.t-friend.offline .t-cap { opacity: .8; }
 .tile.t-friend.in-game .f-pic::after, .tile.t-friend.online .f-pic::after { content: ""; position: absolute; right: 5px; bottom: 5px; width: 10px; height: 10px; border-radius: 50%; background: #9be04f; box-shadow: 0 0 0 2px #fff; }
@@ -675,7 +675,8 @@ body.custom-bg #bg .glow, body.custom-bg #bg .ribbons, body.custom-bg #bg .spark
 }
 .si-slot.focused .si-plate { background: var(--accent); border-color: transparent; color: #fff; transform: scale(1.08); box-shadow: 0 0 0 3px #fff; }
 .si-add { position: absolute; left: 50%; bottom: 30%; transform: translateX(-50%); width: 38%; max-width: 160px; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
-  border: 3px dashed rgba(255, 255, 255, .6); color: rgba(255, 255, 255, .75); opacity: .7; transition: opacity .2s, transform .2s var(--ease); }
+  border: 3px dashed color-mix(in srgb, var(--dim) 70%, transparent); color: var(--dim); opacity: .8; transition: opacity .2s, transform .2s var(--ease); }
 .si-add .ico { width: 45%; height: 45%; }
 .si-add b { position: absolute; right: 18%; top: 14%; font-size: clamp(18px, 3vh, 30px); font-weight: 400; }
-.si-slot.add.focused .si-add { opacity: 1; transform: translateX(-50%) scale(1.08); border-color: #fff; color: #fff; }
+.si-slot.add.focused .si-add { opacity: 1; transform: translateX(-50%) scale(1.08); border-color: var(--accent); color: var(--accent); }
+.si-stage.many .si-plate { font-size: clamp(11px, 1.7vh, 18px); padding: .35em .6em; }
