@@ -79,5 +79,8 @@ lookshot look-wii wii ''
 lookshot look-wii-preview wii 'Return'
 lookshot look-ps5 ps5 ''
 lookshot look-switch switch ''
+lookshot look-retro retro ''
+lookshot look-retro-dock retro 'Down,Right'
+lookshot look-retro-menu retro 'Up,Down,Down,Down'
 rm -rf "$ud"
 if grep -q '^\[page\|^\[missing' "$log"; then echo 'FAILED: see the messages above'; exit 1; fi

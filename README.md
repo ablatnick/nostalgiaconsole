@@ -46,13 +46,14 @@ and the guide work the same in all of them.
 | ![360 blades](docs/screenshots/look-blades.png)<br>**360 blades** (2005): one coloured blade per section | ![Cross media bar](docs/screenshots/look-xmb.png)<br>**Cross media bar**: categories across, items down, over a monthly wave |
 | ![Channels](docs/screenshots/look-wii.png)<br>**Channels**: pages of rounded channels and a clock bar | ![Channel preview](docs/screenshots/look-wii-preview.png)<br>Channels: the preview screen before a game starts |
 | ![Modern cards](docs/screenshots/look-ps5.png)<br>**Modern cards**: an icon row over the game's own artwork | ![Tile strip](docs/screenshots/look-switch.png)<br>**Tile strip**: big square tiles and round shortcuts, light or dark |
+| ![Retro plus](docs/screenshots/look-retro.png)<br>**Retro plus**: glossy mid-2000s menus with a framed, mirrored preview | ![Retro plus dock](docs/screenshots/look-retro-dock.png)<br>Retro plus: a jump back in dock of recent games, always one press away |
 
 The styles are original takes on what those console home screens felt
 like; they use no console makers' logos, fonts, sounds or artwork.
 
 ## Features
 
-- **Seven dashboard styles** (above). The default is the 2011 pivots:
+- **Eight dashboard styles** (above). The default is the 2011 pivots:
   search, home, games, apps, video, streaming, social, steam and settings,
   with LB/RB to switch. Hide any section in settings > customize.
 - **Your Steam library**: installed games, non-Steam shortcuts, play time

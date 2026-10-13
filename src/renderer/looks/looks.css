@@ -260,3 +260,103 @@ body[data-look="switch"]:has(.tstrip.dark) #hints { color: #ddd; }
 .ts-empty { position: absolute; left: 5vw; top: 15vh; opacity: .7; }
 body[data-look="switch"] #hints { left: auto; right: 5vw; justify-content: flex-end; }
 .ts-tile .ts-face { background: transparent; }
+
+/* ---------- retro plus ---------- */
+body[data-look="retro"] { background: #04140a; }
+body[data-look="retro"] #top { display: none; }
+body[data-look="retro"] #hints { color: #e8f5e0; text-shadow: 0 1px 3px rgba(0, 0, 0, .7); }
+.retro { --c: #5aa51e; position: fixed; inset: 0; overflow: hidden; color: #fff; font-family: "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+  background: radial-gradient(90% 70% at 62% 38%, color-mix(in srgb, var(--c) 55%, #0b2b14) 0%, #072010 48%, #020804 100%); transition: background .6s; }
+/* Soft light sweep and a faint scanline, like an old CRT menu. */
+.retro::before { content: ""; position: absolute; inset: -20% -10%; background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, .07) 46%, transparent 54%);
+  animation: retro-sweep 14s ease-in-out infinite; pointer-events: none; }
+.retro::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(transparent 0 2px, rgba(0, 0, 0, .09) 2px 3px), radial-gradient(130% 100% at 50% 50%, transparent 60%, rgba(0, 0, 0, .55)); }
+@keyframes retro-sweep { 0%, 100% { transform: translateX(-30%); } 50% { transform: translateX(30%); } }
+.retro-orbs { position: absolute; inset: 0; pointer-events: none; }
+.retro-orbs i { position: absolute; left: var(--x); bottom: -30vh; width: var(--s); height: var(--s); border-radius: 50%; opacity: .5;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .55), rgba(255, 255, 255, .06) 38%, color-mix(in srgb, var(--c) 40%, transparent) 70%, transparent 72%);
+  animation: retro-rise var(--d) linear infinite; animation-delay: var(--delay); }
+@keyframes retro-rise { from { transform: translateY(0) translateX(0); } 50% { transform: translateY(-70vh) translateX(3vw); } to { transform: translateY(-140vh) translateX(0); } }
+
+/* Glossy capsule: dark glass with a bright top half. */
+.retro-card, .retro-clock, .retro-tab, .retro-btns button {
+  background: linear-gradient(rgba(255, 255, 255, .28), rgba(255, 255, 255, .08) 50%, rgba(0, 0, 0, .18) 51%, rgba(0, 0, 0, .05));
+  border: 1px solid rgba(255, 255, 255, .35); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 4px 14px rgba(0, 0, 0, .35); }
+.retro-card { position: absolute; top: 4vh; left: 4vw; display: flex; align-items: center; gap: 1vw; padding: .7vh 2vw .7vh .7vh; border-radius: 6vh; cursor: pointer; }
+.retro-pic { width: 6.4vh; height: 6.4vh; border-radius: 50%; overflow: hidden; background: #0d2a15; box-shadow: 0 0 0 2px rgba(255, 255, 255, .7); flex: none; }
+.retro-pic img, .retro-pic svg { width: 100%; height: 100%; object-fit: cover; }
+.retro-who { display: flex; flex-direction: column; line-height: 1.2; }
+.retro-who b { font-size: clamp(14px, 2.5vh, 25px); font-weight: 600; }
+.retro-who span { font-size: clamp(11px, 1.7vh, 17px); opacity: .85; }
+.retro-clock { position: absolute; top: 5vh; right: 4vw; padding: 1vh 1.8vw; border-radius: 6vh; font-size: clamp(13px, 2.2vh, 22px); white-space: pre; }
+
+.retro-menu { position: absolute; left: 4vw; top: 16vh; width: 19vw; display: flex; flex-direction: column; gap: 1vh; }
+.retro-tab { display: flex; align-items: center; gap: .9vw; padding: 1.15vh 1.2vw; border-radius: 1.2vh; cursor: pointer; font-size: clamp(14px, 2.4vh, 24px); text-transform: lowercase;
+  border-left: .6vw solid var(--c); opacity: .62; transition: transform .2s, opacity .2s, background-color .2s; }
+.retro-tab .ico { width: 3vh; height: 3vh; flex: none; }
+.retro-tab.on { opacity: 1; background-color: color-mix(in srgb, var(--c) 70%, transparent); transform: translateX(1vw); }
+.retro-tab.focus { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 0 0 3px #fff, 0 0 22px color-mix(in srgb, var(--c) 80%, #fff); }
+
+.retro-stage { position: absolute; left: 28vw; right: 4vw; top: 15vh; height: 42vh; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 3vw; align-items: start; }
+/* The framed picture with a mirror reflection underneath. */
+.retro-frame { position: relative; aspect-ratio: 16 / 9; border-radius: 1.4vh; padding: .6vh; background: linear-gradient(#e9eef0, #8d989e 50%, #5f6a70 51%, #b9c2c6);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .5); -webkit-box-reflect: below 1.2vh linear-gradient(transparent 62%, rgba(255, 255, 255, .28)); }
+.retro-shot { position: absolute; inset: .6vh; border-radius: 1vh; overflow: hidden; background: #0d2414; opacity: 0; transition: opacity .35s; }
+.retro-shot.in { opacity: 1; }
+.retro-shot::after { content: ""; position: absolute; inset: 0; background: linear-gradient(160deg, rgba(255, 255, 255, .28), transparent 40%); pointer-events: none; }
+.retro-shot .art { position: absolute; inset: 0; }
+.retro-shot .art .blur { display: none; }
+.retro-shot .art .fg { width: 100%; height: 100%; object-fit: cover; }
+.retro-shot .art-icon, .retro-shot .art-pic { display: grid; place-items: center; background: linear-gradient(160deg, color-mix(in srgb, var(--c) 70%, #fff), color-mix(in srgb, var(--c) 60%, #000)); }
+.retro-shot .art-icon .ico { width: 34%; height: 34%; }
+.retro-shot .art-pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.retro-shot .art.noart { display: grid; place-items: center; font-size: clamp(16px, 3vh, 30px); text-align: center; padding: 2vh; }
+.retro-info { display: flex; flex-direction: column; gap: 1.2vh; min-width: 0; text-shadow: 0 2px 6px rgba(0, 0, 0, .55); }
+.retro-info small { font-size: clamp(11px, 1.8vh, 18px); text-transform: uppercase; letter-spacing: .18em; color: color-mix(in srgb, var(--c) 45%, #fff); }
+.retro-info h1 { margin: 0; font-size: clamp(22px, 5vh, 50px); font-weight: 300; line-height: 1.05; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.retro-info p { margin: 0; font-size: clamp(12px, 2vh, 20px); opacity: .88; }
+.retro-btns { display: flex; flex-wrap: wrap; gap: 1vw; margin-top: 1.5vh; }
+.retro-btns button { font: inherit; color: #fff; font-size: clamp(13px, 2.1vh, 21px); padding: 1vh 1.6vw 1vh 1vh; border-radius: 5vh; cursor: pointer; display: flex; align-items: center; gap: .8vw; text-shadow: inherit; }
+.retro-btns i { font-style: normal; font-weight: 700; width: 3.4vh; height: 3.4vh; border-radius: 50%; display: grid; place-items: center; font-size: .85em;
+  background: radial-gradient(circle at 35% 30%, #fff 0 8%, var(--k) 45%, color-mix(in srgb, var(--k) 50%, #000)); box-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
+.retro-go i { --k: #3fa82a; }
+.retro-play i { --k: #2a6fd6; }
+
+.retro-shelf-head, .retro-dock-head { position: absolute; left: 28vw; right: 4vw; display: flex; align-items: baseline; gap: 1.2vw; font-size: clamp(12px, 2vh, 20px); text-transform: lowercase; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+.retro-shelf-head { top: 63vh; }
+.retro-shelf-head b { font-weight: 600; }
+.retro-shelf-head span { opacity: .7; font-variant-numeric: tabular-nums; }
+.retro-shelf { position: absolute; left: 28vw; right: 0; top: 67vh; height: calc(var(--cw) * .5625 + 3.6vh); }
+.retro-item { position: absolute; left: 0; top: 0; width: var(--cw); cursor: pointer; transition: transform .25s cubic-bezier(.2, .8, .25, 1), opacity .25s; }
+.retro-item > .art { position: relative; aspect-ratio: 16 / 9; border-radius: .9vh; overflow: hidden; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .25); }
+.retro-item > .art .blur { display: none; }
+.retro-item > .art .fg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.retro-item > .art-icon, .retro-item > .art-pic { display: grid; place-items: center; background: linear-gradient(160deg, color-mix(in srgb, var(--c) 60%, #fff), color-mix(in srgb, var(--c) 55%, #000)); }
+.retro-item > .art-icon .ico { width: 36%; height: 36%; }
+.retro-item > .art-pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.retro-item > .art.noart { display: grid; place-items: center; }
+.retro-item .noart-name { font-size: clamp(11px, 1.8vh, 18px); padding: 4px; }
+.retro-item > .art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(255, 255, 255, .22), transparent 48%); pointer-events: none; }
+.retro-cap { margin-top: .6vh; font-size: clamp(11px, 1.7vh, 17px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .75; }
+.retro-item.on .retro-cap { opacity: 1; }
+.retro-item.focus > .art { box-shadow: 0 0 0 3px #fff, 0 0 18px color-mix(in srgb, var(--c) 80%, #fff); }
+.retro-item.focus { transform-origin: left center; }
+.retro-empty { opacity: .7; padding-top: 2vh; }
+
+.retro-dock-head { top: 86vh; left: 4vw; width: 19vw; justify-content: flex-end; opacity: .8; }
+.retro[data-zone="dock"] .retro-dock-head { opacity: 1; }
+.retro-dock { position: absolute; left: 24vw; right: 4vw; top: 82vh; height: 10vh; display: flex; gap: 1vw; align-items: center; padding: 0 1.2vw; border-radius: 2vh;
+  background: linear-gradient(rgba(255, 255, 255, .14), rgba(255, 255, 255, .04) 50%, rgba(0, 0, 0, .25) 51%, rgba(0, 0, 0, .1)); border: 1px solid rgba(255, 255, 255, .2); }
+.retro-dock[hidden], .retro-dock-head[hidden] { display: none; }
+.retro-dock-item { position: relative; height: 7.4vh; aspect-ratio: 2 / 3; border-radius: .8vh; overflow: hidden; cursor: pointer; flex: none; background: rgba(0, 0, 0, .35); transition: transform .2s; }
+.retro-dock-item .art { position: absolute; inset: 0; }
+.retro-dock-item .art .blur { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(6px) brightness(.7); }
+.retro-dock-item .art .fg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.retro-dock-item .art.cover .fg { object-fit: cover; }
+.retro-dock-item .art-icon, .retro-dock-item .art-pic { display: grid; place-items: center; }
+.retro-dock-item .art-icon .ico { width: 60%; height: 60%; }
+.retro-dock-item .art.noart { display: grid; place-items: center; }
+.retro-dock-item .noart-name { font-size: 9px; padding: 2px; }
+.retro-dock-item.focus { transform: scale(1.18); box-shadow: 0 0 0 3px #fff, 0 0 16px color-mix(in srgb, var(--c) 80%, #fff); z-index: 1; }

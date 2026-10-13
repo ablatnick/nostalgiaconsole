@@ -12,7 +12,7 @@ const TILE_SIZES = ['huge', 'large', 'medium', 'small', 'tiny'];
 const TEXT_SIZES = ['small', 'normal', 'large'];
 // Pivots that can be hidden (home and settings always stay).
 // Dashboard styles (src/renderer/looks). 'metro' is the 2011 360 look.
-const LOOKS = ['metro', 'nxe', 'blades', 'xmb', 'wii', 'ps5', 'switch'];
+const LOOKS = ['metro', 'nxe', 'blades', 'xmb', 'wii', 'ps5', 'switch', 'retro'];
 const TABS = ['search', 'games', 'apps', 'video', 'streaming', 'social', 'steam'];
 const COUNTS = { recentCount: [0, 3, 6, 9, 12], friendCount: [6, 12, 18, 24, 36] };
 

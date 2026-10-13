@@ -27,7 +27,7 @@ const THEMES = ['classic', 'midnight', 'ember', 'arctic'];
 // Dashboard styles; settings.js has the same list.
 const LOOK_NAMES = {
   metro: '360 metro (2011)', nxe: '360 nxe (2008)', blades: '360 blades (2005)', xmb: 'cross media bar',
-  wii: 'channels', ps5: 'modern cards', switch: 'tile strip',
+  wii: 'channels', ps5: 'modern cards', switch: 'tile strip', retro: 'retro plus',
 };
 const AFTER_LAUNCH = ['stay', 'minimize', 'close'];
 const VOLUMES = [20, 40, 60, 80, 100];
@@ -1873,7 +1873,7 @@ function openCustomize() {
   const named = (v) => v || 'theme default';
   const tabs = [
     { icon: 'palette', label: 'colors', items: () => [
-      opt('grid', 'dashboard style', 'look', Object.keys(LOOK_NAMES), (v) => LOOK_NAMES[v], null, 'the whole home screen: 360 metro, nxe or blades, a cross media bar, channels, modern cards or a tile strip'),
+      opt('grid', 'dashboard style', 'look', Object.keys(LOOK_NAMES), (v) => LOOK_NAMES[v], null, 'the whole home screen: 360 metro, nxe or blades, a cross media bar, channels, modern cards, a tile strip, or retro plus (old-school gloss with modern shortcuts)'),
       opt('palette', 'theme', 'theme', THEMES, (v) => v, null, 'the overall style; colors below go on top of it'),
       opt('grid', 'tile color', 'tileColor', ['', ...Object.keys(TILE_HEX)], named, (v) => TILE_HEX[v] || 'var(--tile)', 'the color of the dashboard tiles'),
       opt('image', 'background', 'bgColor', ['', ...Object.keys(BG_HEX)], named, (v) => (BG_HEX[v] ? `linear-gradient(${BG_HEX[v].join(',')})` : 'var(--bg-mid)'), 'the color behind the tiles'),

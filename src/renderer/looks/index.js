@@ -10,5 +10,6 @@ import nxe from './nxe.js';
 import blades from './blades.js';
 import ps5 from './ps5.js';
 import tstrip from './switch.js';
+import retro from './retro.js';
 
-export const LOOK_MODULES = { nxe, blades, xmb, wii, ps5, switch: tstrip };
+export const LOOK_MODULES = { nxe, blades, xmb, wii, ps5, switch: tstrip, retro };
