@@ -5,6 +5,14 @@ const path = require('path');
 
 const THEMES = ['classic', 'midnight', 'ember', 'arctic'];
 const AFTER_LAUNCH = ['stay', 'minimize', 'close'];
+// Customize: '' means "use the theme's own".
+const TILE_COLORS = ['', 'lime', 'green', 'teal', 'blue', 'navy', 'purple', 'pink', 'red', 'orange', 'gold', 'slate', 'black'];
+const BG_COLORS = ['', 'silver', 'graphite', 'black', 'navy', 'forest', 'plum', 'wine', 'sand'];
+const TILE_SIZES = ['huge', 'large', 'medium', 'small', 'tiny'];
+const TEXT_SIZES = ['small', 'normal', 'large'];
+// Pivots that can be hidden (home and settings always stay).
+const TABS = ['search', 'games', 'apps', 'video', 'streaming', 'social', 'steam'];
+const COUNTS = { recentCount: [0, 3, 6, 9, 12], friendCount: [6, 12, 18, 24, 36] };
 
 const DEFAULTS = {
   theme: 'classic',
@@ -25,16 +33,24 @@ const DEFAULTS = {
   jellyfinUser: '',
   gamertag: '',
   pinned: [],
+  tileColor: '',
+  bgColor: '',
+  tileSize: 'large',
+  textSize: 'normal',
+  hiddenTabs: [],
+  recentCount: 6,
+  friendCount: 24,
+  cycleTiles: true,
 };
 
 // What each profile keeps for itself.
-const PROFILE_KEYS = ['gamertag', 'avatarLook', 'gamerpic', 'pinned', 'theme'];
+const PROFILE_KEYS = ['gamertag', 'avatarLook', 'gamerpic', 'pinned', 'theme', 'tileColor', 'bgColor'];
 
 function sanitize(input) {
   const s = { ...DEFAULTS };
   if (!input || typeof input !== 'object') return s;
   if (THEMES.includes(input.theme)) s.theme = input.theme;
-  for (const k of ['sound', 'intro', 'showTools', 'fullscreen', 'communityAvatar', 'moonlight', 'avatar', 'autostart']) {
+  for (const k of ['sound', 'intro', 'showTools', 'fullscreen', 'communityAvatar', 'moonlight', 'avatar', 'autostart', 'cycleTiles']) {
     if (typeof input[k] === 'boolean') s[k] = input[k];
   }
   if (Number.isFinite(input.volume)) s.volume = Math.max(0, Math.min(100, Math.round(input.volume)));
@@ -46,6 +62,12 @@ function sanitize(input) {
     }
     s.avatarLook = look;
   }
+  if (TILE_COLORS.includes(input.tileColor)) s.tileColor = input.tileColor;
+  if (BG_COLORS.includes(input.bgColor)) s.bgColor = input.bgColor;
+  if (TILE_SIZES.includes(input.tileSize)) s.tileSize = input.tileSize;
+  if (TEXT_SIZES.includes(input.textSize)) s.textSize = input.textSize;
+  if (Array.isArray(input.hiddenTabs)) s.hiddenTabs = [...new Set(input.hiddenTabs.filter((t) => TABS.includes(t)))];
+  for (const [k, list] of Object.entries(COUNTS)) if (list.includes(input[k])) s[k] = input[k];
   if (AFTER_LAUNCH.includes(input.afterLaunch)) s.afterLaunch = input.afterLaunch;
   if (typeof input.gamertag === 'string') s.gamertag = input.gamertag.slice(0, 32);
   if (typeof input.jellyfinUser === 'string') s.jellyfinUser = input.jellyfinUser.slice(0, 64);
@@ -116,4 +138,4 @@ Settings.prototype.removeProfile = function removeProfile(id) {
   return this.update({ profiles: v.profiles.filter((p) => p.id !== id) });
 };
 
-module.exports = { Settings, sanitize, DEFAULTS, THEMES, AFTER_LAUNCH };
+module.exports = { Settings, sanitize, DEFAULTS, THEMES, AFTER_LAUNCH, TILE_COLORS, BG_COLORS, TILE_SIZES, TEXT_SIZES, TABS, COUNTS };

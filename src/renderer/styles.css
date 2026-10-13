@@ -627,10 +627,19 @@ body.has-overlay #hints { color: var(--dim); text-shadow: none; }
 .dl-unknown .dl-bar i { animation: dl-slide 1.6s linear infinite; }
 @keyframes dl-slide { from { left: -30%; } to { left: 100%; } }
 .dl-bar span { position: relative; display: block; text-align: center; font-size: 11px; line-height: 18px; color: #fff; }
-/* friends */
-.t-friend.offline .art { filter: grayscale(.8) brightness(.8); }
-.t-friend.in-game::before { content: ""; position: absolute; right: 8px; top: 8px; width: 12px; height: 12px; border-radius: 50%; background: #9be04f; box-shadow: 0 0 0 2px #fff; z-index: 3; }
-.t-friend.online::before { content: ""; position: absolute; right: 8px; top: 8px; width: 12px; height: 12px; border-radius: 50%; background: #2c9be0; box-shadow: 0 0 0 2px #fff; z-index: 3; }
+/* friends: slim list rows, a square picture on the left */
+.tile.t-friend { display: flex; align-items: center; }
+.tile.t-friend .f-pic { position: relative; flex: none; height: 100%; aspect-ratio: 1; overflow: hidden; background: rgba(0, 0, 0, .18); color: #fff; display: grid; place-items: center; }
+.tile.t-friend .f-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile.t-friend .f-pic svg { width: 55%; height: 55%; }
+.tile.t-friend .t-cap { position: static; flex: 1; min-width: 0; padding: 0 12px 0 14px; background: none; text-shadow: none; }
+.tile.t-friend .t-cap b { font-size: clamp(12px, 2vh, 21px); }
+.tile.t-friend .t-cap span { font-size: clamp(10px, 1.35vh, 14px); }
+.tile.t-friend.offline { background: rgba(255, 255, 255, .22); }
+.tile.t-friend.offline .f-pic { filter: grayscale(.8) brightness(.8); }
+.tile.t-friend.offline .t-cap { opacity: .8; }
+.tile.t-friend.in-game .f-pic::after, .tile.t-friend.online .f-pic::after { content: ""; position: absolute; right: 5px; bottom: 5px; width: 10px; height: 10px; border-radius: 50%; background: #9be04f; box-shadow: 0 0 0 2px #fff; }
+.tile.t-friend.online .f-pic::after { background: #2c9be0; }
 
 /* video player */
 .player { background: #000; }
@@ -644,3 +653,29 @@ body.has-overlay #hints { color: var(--dim); text-shadow: none; }
 .pl-time { margin-top: 8px; font-size: 15px; color: #cfd8dc; }
 body.has-overlay .player ~ #hints, .player + #hints { color: #fff; }
 .detail-info .overview { margin-top: 14px; font-size: clamp(13px, 1.9vh, 17px); color: var(--dim); line-height: 1.45; max-height: 9em; overflow: hidden; }
+
+/* customize */
+.customize .cz-title { padding: 18px 22px 0; font-size: clamp(18px, 2.6vh, 26px); color: rgba(255, 255, 255, .85); text-transform: lowercase; }
+.customize .menu-item .cz-swatch { margin-left: auto; width: 1.1em; height: 1.1em; flex: none; box-shadow: 0 0 0 2px rgba(255, 255, 255, .85), 0 0 0 3px rgba(0, 0, 0, .15); }
+.customize .menu-item .cz-swatch + small { margin-left: 10px; }
+.customize .cz-info { min-height: 2.6em; padding: 10px 22px 18px; color: var(--dim); font-size: clamp(11px, 1.5vh, 14px); }
+.t-cap { zoom: var(--text-scale, 1); }
+body.custom-bg #bg { background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 55%, var(--bg-bot) 100%); }
+body.custom-bg #bg .glow, body.custom-bg #bg .ribbons, body.custom-bg #bg .sparks { opacity: .35; }
+
+/* sign-in: avatars standing on a stage */
+.signin.lineup .lib-panel { display: flex; flex-direction: column; }
+.si-stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: flex-end; margin: 0 4%; }
+.si-canvas { position: absolute; left: 0; right: 0; top: 0; bottom: 14%; width: 100%; height: 86%; pointer-events: none; }
+.si-slot { position: relative; flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; cursor: pointer; }
+.si-plate {
+  margin-bottom: 4%; max-width: 92%; padding: .35em 1.1em; font-size: clamp(14px, 2.3vh, 24px); color: var(--text);
+  background: var(--panel); border: 1px solid var(--panel-line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background .2s, color .2s, transform .2s var(--ease);
+}
+.si-slot.focused .si-plate { background: var(--accent); border-color: transparent; color: #fff; transform: scale(1.08); box-shadow: 0 0 0 3px #fff; }
+.si-add { position: absolute; left: 50%; bottom: 30%; transform: translateX(-50%); width: 38%; max-width: 160px; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
+  border: 3px dashed rgba(255, 255, 255, .6); color: rgba(255, 255, 255, .75); opacity: .7; transition: opacity .2s, transform .2s var(--ease); }
+.si-add .ico { width: 45%; height: 45%; }
+.si-add b { position: absolute; right: 18%; top: 14%; font-size: clamp(18px, 3vh, 30px); font-weight: 400; }
+.si-slot.add.focused .si-add { opacity: 1; transform: translateX(-50%) scale(1.08); border-color: #fff; color: #fff; }

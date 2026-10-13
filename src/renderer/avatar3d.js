@@ -1204,6 +1204,74 @@ const VIEWS = {
   bust: { pos: [0, 1.42, 3.0], target: [0, 1.4, 0], fov: 26 },
 };
 
+// One avatar's moving parts and idle timers, so several can share a scene
+// and still fidget on their own.
+function makeActor(root, now = performance.now()) {
+  const parts = {
+    body: root.getObjectByName('body'),
+    head: root.getObjectByName('headPivot'),
+    armL: root.getObjectByName('armL'),
+    armR: root.getObjectByName('armR'),
+    lids: [],
+  };
+  parts.elbowL = parts.armL && parts.armL.getObjectByName('elbow');
+  parts.elbowR = parts.armR && parts.armR.getObjectByName('elbow');
+  root.traverse((o) => { if (o.name === 'lid') parts.lids.push(o); });
+  return { root, parts, t0: now, action: null, nextAction: 0, waveUntil: 0, nextBlink: now + 2500 };
+}
+
+function poseActor(actor, now) {
+const p = actor.parts;
+  const t = (now - actor.t0) / 1000;
+  p.body.scale.y = 1 + Math.sin(t * 1.7) * 0.006;
+  p.head.rotation.y = Math.sin(t * 0.45) * 0.25 + Math.sin(t * 1.3) * 0.04;
+  p.head.rotation.x = Math.sin(t * 0.7) * 0.04;
+  p.head.rotation.z = 0;
+  p.armL.rotation.set(0, 0, -0.1 - Math.sin(t * 1.7) * 0.02);
+  p.armR.rotation.set(0, 0, 0.1 + Math.sin(t * 1.7) * 0.02);
+  if (p.elbowL) p.elbowL.rotation.x = -0.12;
+  if (p.elbowR) p.elbowR.rotation.x = -0.12;
+  p.body.position.set(0, 0, 0);
+  p.body.rotation.z = 0;
+
+  // Now and then an idle action, like the console avatars fidgeting.
+  if (!actor.action && now > (actor.nextAction || (actor.nextAction = now + 6000))) {
+    const names = ['stretch', 'watch', 'shift', 'wave'];
+    actor.action = { name: names[Math.floor(Math.random() * names.length)], start: now, dur: 2600 };
+  }
+  if (now < actor.waveUntil) actor.action = { name: 'celebrate', start: actor.waveUntil - 1800, dur: 1800 };
+  const a = actor.action;
+  if (a) {
+    const k = Math.min(1, (now - a.start) / a.dur);
+    const ease = Math.sin(k * Math.PI); // 0 → 1 → 0
+    if (a.name === 'celebrate') {
+      p.armL.rotation.z = -0.1 - ease * 2.6;
+      p.armR.rotation.z = 0.1 + ease * 2.6;
+      p.body.position.y = Math.max(0, Math.sin(k * Math.PI * 3)) * 0.06 * ease;
+    } else if (a.name === 'stretch') {
+      p.armL.rotation.z = -0.1 - ease * 2.9;
+      p.armR.rotation.z = 0.1 + ease * 2.9;
+      p.head.rotation.x = -ease * 0.25;
+      p.body.scale.y += ease * 0.015;
+    } else if (a.name === 'watch') {
+      p.armL.rotation.x = -ease * 1.1;
+      p.armL.rotation.z = -0.1 + ease * 0.35;
+      if (p.elbowL) p.elbowL.rotation.x = -0.12 - ease * 1.5;
+      p.head.rotation.x = ease * 0.35;
+      p.head.rotation.y = ease * 0.3;
+    } else if (a.name === 'shift') {
+      p.body.rotation.z = Math.sin(k * Math.PI * 2) * 0.05;
+      p.head.rotation.z = -Math.sin(k * Math.PI * 2) * 0.06;
+    } else if (a.name === 'wave') {
+      p.armR.rotation.z = 0.1 + ease * 2.4 + Math.sin(t * 14) * 0.22 * ease;
+    }
+    if (k >= 1) { actor.action = null; actor.nextAction = now + 8000 + Math.random() * 6000; }
+  }
+  const blink = now > actor.nextBlink && now < actor.nextBlink + 130;
+  if (now > actor.nextBlink + 130) actor.nextBlink = now + 2500 + Math.random() * 3500;
+  for (const lid of p.lids) lid.visible = blink;
+}
+
 // One avatar on one canvas, animated.
 export class AvatarView {
   constructor(canvas, { view = 'full', animate = true } = {}) {
@@ -1222,9 +1290,7 @@ export class AvatarView {
     this.animate = animate;
     this.setView(view, true);
     this.avatar = null;
-    this.waveUntil = 0;
-    this.nextBlink = performance.now() + 2500;
-    this.t0 = performance.now();
+    this.actor = null;
     this.running = false;
   }
 
@@ -1244,18 +1310,10 @@ export class AvatarView {
       this.scene.remove(this.avatar);
       disposeTree(this.avatar);
     }
-    this.avatar = buildAvatar(look);
+    this.actor = makeActor(buildAvatar(look));
+    this.avatar = this.actor.root;
     this.scene.add(this.avatar);
-    this.parts = {
-      body: this.avatar.getObjectByName('body'),
-      head: this.avatar.getObjectByName('headPivot'),
-      armL: this.avatar.getObjectByName('armL'),
-      armR: this.avatar.getObjectByName('armR'),
-      elbowL: this.avatar.getObjectByName('armL') && this.avatar.getObjectByName('armL').getObjectByName('elbow'),
-      elbowR: this.avatar.getObjectByName('armR') && this.avatar.getObjectByName('armR').getObjectByName('elbow'),
-      lids: [],
-    };
-    this.avatar.traverse((o) => { if (o.name === 'lid') this.parts.lids.push(o); });
+    this.parts = this.actor.parts;
     this.render();
   }
 
@@ -1268,7 +1326,7 @@ export class AvatarView {
     this.camera.updateProjectionMatrix();
   }
 
-  wave() { this.waveUntil = performance.now() + 1800; }
+  wave() { if (this.actor) this.actor.waveUntil = performance.now() + 1800; }
   rotateBy(rad) { this.targetTurn += rad; }
 
   start() {
@@ -1285,56 +1343,7 @@ export class AvatarView {
   stop() { this.running = false; }
 
   pose(now) {
-    const p = this.parts;
-    if (!p || !this.animate) return;
-    const t = (now - this.t0) / 1000;
-    p.body.scale.y = 1 + Math.sin(t * 1.7) * 0.006;
-    p.head.rotation.y = Math.sin(t * 0.45) * 0.25 + Math.sin(t * 1.3) * 0.04;
-    p.head.rotation.x = Math.sin(t * 0.7) * 0.04;
-    p.head.rotation.z = 0;
-    p.armL.rotation.set(0, 0, -0.1 - Math.sin(t * 1.7) * 0.02);
-    p.armR.rotation.set(0, 0, 0.1 + Math.sin(t * 1.7) * 0.02);
-    if (p.elbowL) p.elbowL.rotation.x = -0.12;
-    if (p.elbowR) p.elbowR.rotation.x = -0.12;
-    p.body.position.set(0, 0, 0);
-    p.body.rotation.z = 0;
-
-    // Now and then an idle action, like the console avatars fidgeting.
-    if (!this.action && now > (this.nextAction || (this.nextAction = now + 6000))) {
-      const names = ['stretch', 'watch', 'shift', 'wave'];
-      this.action = { name: names[Math.floor(Math.random() * names.length)], start: now, dur: 2600 };
-    }
-    if (now < this.waveUntil) this.action = { name: 'celebrate', start: this.waveUntil - 1800, dur: 1800 };
-    const a = this.action;
-    if (a) {
-      const k = Math.min(1, (now - a.start) / a.dur);
-      const ease = Math.sin(k * Math.PI); // 0 → 1 → 0
-      if (a.name === 'celebrate') {
-        p.armL.rotation.z = -0.1 - ease * 2.6;
-        p.armR.rotation.z = 0.1 + ease * 2.6;
-        p.body.position.y = Math.max(0, Math.sin(k * Math.PI * 3)) * 0.06 * ease;
-      } else if (a.name === 'stretch') {
-        p.armL.rotation.z = -0.1 - ease * 2.9;
-        p.armR.rotation.z = 0.1 + ease * 2.9;
-        p.head.rotation.x = -ease * 0.25;
-        p.body.scale.y += ease * 0.015;
-      } else if (a.name === 'watch') {
-        p.armL.rotation.x = -ease * 1.1;
-        p.armL.rotation.z = -0.1 + ease * 0.35;
-        if (p.elbowL) p.elbowL.rotation.x = -0.12 - ease * 1.5;
-        p.head.rotation.x = ease * 0.35;
-        p.head.rotation.y = ease * 0.3;
-      } else if (a.name === 'shift') {
-        p.body.rotation.z = Math.sin(k * Math.PI * 2) * 0.05;
-        p.head.rotation.z = -Math.sin(k * Math.PI * 2) * 0.06;
-      } else if (a.name === 'wave') {
-        p.armR.rotation.z = 0.1 + ease * 2.4 + Math.sin(t * 14) * 0.22 * ease;
-      }
-      if (k >= 1) { this.action = null; this.nextAction = now + 8000 + Math.random() * 6000; }
-    }
-    const blink = now > this.nextBlink && now < this.nextBlink + 130;
-    if (now > this.nextBlink + 130) this.nextBlink = now + 2500 + Math.random() * 3500;
-    for (const lid of p.lids) lid.visible = blink;
+    if (this.actor && this.animate) poseActor(this.actor, now);
   }
 
   render() {
@@ -1355,6 +1364,72 @@ export class AvatarView {
     this.camera.lookAt(this.camTarget);
     this.pose(now);
     this.renderer.render(this.scene, this.camera);
+  }
+}
+
+// Several avatars standing side by side on one canvas (the sign-in
+// screen), each idling on its own. slots() places them over HTML slots:
+// pass each slot's centre as a 0..1 fraction of the canvas width.
+export class AvatarLineup {
+  constructor(canvas) {
+    this.view = new AvatarView(canvas, { view: 'full' });
+    this.view.pose = (now) => this.pose(now);
+    this.actors = [];
+    this.focused = -1;
+  }
+
+  setLooks(looks) {
+    const { scene } = this.view;
+    for (const a of this.actors) { scene.remove(a.group); disposeTree(a.group); }
+    const now = performance.now();
+    this.actors = looks.map((look, i) => {
+      const group = new THREE.Group();
+      const actor = makeActor(buildAvatar(look), now - i * 1700);
+      // Stagger the first fidgets so they don't move in step.
+      actor.nextAction = now + 2500 + i * 2300 + Math.random() * 2000;
+      group.add(actor.root);
+      group.add(floorShadow());
+      scene.add(group);
+      return Object.assign(actor, { group, x: 0, z: 0, scale: 0.82 });
+    });
+    // The view's own shadow sits at the centre; the lineup draws one each.
+    scene.children.filter((o) => o.isMesh && !this.actors.some((a) => a.group === o)).forEach((o) => { o.visible = false; });
+  }
+
+  slots(fractions) { this.fractions = fractions; }
+
+  focus(i) {
+    if (i === this.focused) return;
+    this.focused = i;
+    const a = this.actors[i];
+    if (a) a.waveUntil = performance.now() + 1800;
+  }
+
+  pose(now) {
+    const cam = this.view.camera;
+    const dist = cam.position.z;
+    const halfW = Math.tan((cam.fov * Math.PI) / 360) * dist * cam.aspect;
+    const n = this.actors.length;
+    this.actors.forEach((a, i) => {
+      const f = this.fractions && this.fractions[i] != null ? this.fractions[i] : (i + 0.5) / n;
+      const on = i === this.focused;
+      // Ease towards the slot; the focused avatar steps forward.
+      a.x += ((f * 2 - 1) * halfW - a.x) * 0.15;
+      a.z += ((on ? 0.2 : 0) - a.z) * 0.12;
+      a.scale += ((on ? 0.92 : 0.82) - a.scale) * 0.12;
+      a.group.position.set(a.x * (dist - a.z) / dist, 0, a.z);
+      a.group.scale.setScalar(a.scale);
+      poseActor(a, now);
+    });
+  }
+
+  start() { this.view.start(); }
+  stop() { this.view.stop(); }
+
+  dispose() {
+    this.stop();
+    for (const a of this.actors) disposeTree(a.group);
+    this.view.renderer.dispose();
   }
 }
 

@@ -2,7 +2,7 @@ import { startInput } from './input.js';
 import * as sound from './sound.js';
 import { icon } from './icons.js';
 import { avatarSvg, PARTS, VIEW_HEAD, VIEW_FULL, normalizeLook, randomLook } from './avatar.js';
-import { AvatarView, snapshot, webglAvailable } from './avatar3d.js';
+import { AvatarView, AvatarLineup, snapshot, webglAvailable } from './avatar3d.js';
 
 // 3D avatars when WebGL works, the flat drawing otherwise.
 const GL = webglAvailable();
@@ -25,6 +25,20 @@ const CAPTURE = params.has('capture');
 const THEMES = ['classic', 'midnight', 'ember', 'arctic'];
 const AFTER_LAUNCH = ['stay', 'minimize', 'close'];
 const VOLUMES = [20, 40, 60, 80, 100];
+// Customize options; settings.js has the same lists. '' = the theme's own.
+const TILE_HEX = {
+  lime: '#7cc13a', green: '#2e9d3a', teal: '#14a3a0', blue: '#1f86cc', navy: '#2b4c9b', purple: '#7d4cc6',
+  pink: '#d6469a', red: '#cc2f36', orange: '#e0711f', gold: '#d9a400', slate: '#5d6b75', black: '#24282b',
+};
+const BG_HEX = {
+  silver: ['#8c969d', '#a3acb2', '#bfc6ca'], graphite: ['#3f4549', '#353a3e', '#2a2e31'], black: ['#141516', '#0c0d0e', '#050505'],
+  navy: ['#1d2c4a', '#14203a', '#0b1326'], forest: ['#2b4a30', '#1f3623', '#132216'], plum: ['#46304f', '#33223a', '#211625'],
+  wine: ['#561e28', '#3c141b', '#250b10'], sand: ['#c9b893', '#d8cba9', '#e6dcc3'],
+};
+const TILE_SIZES = { huge: 1.15, large: 1, medium: 0.85, small: 0.72, tiny: 0.6 };
+const TEXT_SIZES = { small: 0.85, normal: 1, large: 1.2 };
+const TAB_NAMES = { search: 'search', games: 'games', apps: 'apps', video: 'video (jellyfin)', streaming: 'streaming (moonlight)', social: 'social (friends)', steam: 'steam' };
+const COUNTS = { recentCount: [0, 3, 6, 9, 12], friendCount: [6, 12, 18, 24, 36] };
 const SORTS = [
   ['recent', 'recently played'],
   ['az', 'a–z'],
@@ -247,6 +261,7 @@ function settingTiles() {
   const next = (list, v) => list[(list.indexOf(v) + 1) % list.length];
   return [
     { key: 'set:theme', type: 'icon', icon: 'palette', label: 'theme', value: s.theme, title: 'theme', sub: 'change the dashboard colors', colors: ['#7d58c6', '#46297f'], activate: set({ theme: next(THEMES, s.theme) }) },
+    { key: 'set:customize', type: 'icon', icon: 'grid', label: 'customize', value: 'colors, tabs, tile size', title: 'customize', sub: 'tile and background colors, which tabs show, how big the tiles are', colors: ['#d6469a', '#8a1f5c'], activate: () => openCustomize() },
     { key: 'set:avatar-edit', type: 'avatar', label: 'my avatar', value: 'customize', title: 'my avatar', sub: 'change your avatar\'s features and style', activate: () => openAvatarEditor() },
     { key: 'set:sound', type: 'icon', icon: s.sound ? 'sound' : 'mute', label: 'sounds', value: onoff(s.sound), title: 'interface sounds', sub: 'blips and swooshes while you browse', colors: ['#2c8fd6', '#155988'], activate: set({ sound: !s.sound }) },
     { key: 'set:pack', type: 'icon', icon: 'sound', label: 'sound pack', value: state.packCount ? `${state.packCount} custom sounds` : 'built-in sounds', title: 'sound pack',
@@ -400,6 +415,11 @@ function homePivot() {
 
 function buildChannels() {
   indexLibrary();
+  const hidden = new Set(state.settings.hiddenTabs || []);
+  return buildPivots().filter((pv) => !hidden.has(pv.key));
+}
+
+function buildPivots() {
   const { lib } = state;
   const pivots = [{ key: 'search', title: 'search', tiles: flow([
     { key: 'search:find', type: 'icon', icon: 'search', label: 'search games', value: 'type a name', title: 'search', w: 1, h: 1, cls: 'grey', activate: () => searchGames() },
@@ -415,7 +435,7 @@ function buildChannels() {
       extra.push({ key: 'games:notinstalled', type: 'icon', icon: 'downloads', label: 'not installed', value: `${missing.length} games you own`, title: 'not installed',
         activate: () => openLibrary({ title: 'not installed', list: missing, sort: 1 }) });
     }
-    pivots.push({ key: 'games', title: 'games', tiles: flow([lt, ...sorted(state.steamGames, 'recent').slice(0, 6).map((g) => gameTile(g)), ...extra]) });
+    pivots.push({ key: 'games', title: 'games', tiles: flow([lt, ...sorted(state.steamGames, 'recent').slice(0, state.settings.recentCount ?? 6).map((g) => gameTile(g)), ...extra]) });
   }
   if (lib.shortcuts.length) pivots.push({ key: 'apps', title: 'apps', tiles: flow(sorted(lib.shortcuts, 'recent').map((g) => gameTile(g))) });
   const video = videoPivot();
@@ -430,12 +450,18 @@ function buildChannels() {
   pivots.push({ key: 'steam', title: 'steam', tiles: flow(st) });
   const friends = state.web && state.web.friends ? state.web.friends : [];
   if (friends.length) {
-    const tiles = friends.slice(0, 18).map((f) => ({
+    // A compact friends list: slim rows (picture + name), six per column,
+    // in game first, then online, then offline.
+    const rank = (f) => (f.game ? 0 : f.state ? 1 : 2);
+    const list = friends.map((f, i) => [f, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([f]) => f);
+    const perCol = ROWS * 2;
+    const tiles = list.slice(0, state.settings.friendCount || 24).map((f, i) => ({
       key: 'friend:' + f.steamid, type: 'friend', friend: f, caption: f.name, title: f.name,
       value: f.game ? `playing ${f.game}` : f.state ? 'online' : 'offline',
+      c: Math.floor(i / perCol) * 1.5, r: (i % perCol) / 2, w: 1.5, h: 0.5,
       activate: () => openSteam('message', f.steamid),
     }));
-    pivots.splice(pivots.length - 1, 0, { key: 'social', title: 'social', tiles: flow(tiles) });
+    pivots.splice(pivots.length - 1, 0, { key: 'social', title: 'social', tiles });
   }
   pivots.push({ key: 'settings', title: 'settings', tiles: flow(settingTiles()) });
   return pivots;
@@ -540,8 +566,7 @@ function tileEl(t) {
     e.append(artEl(t.game, ['boxart']));
     e.append(el('div', 'badge kind', 'stream'));
   } else if (t.type === 'friend') {
-    if (t.friend.avatar) e.append(el('div', 'art', `<img class="fg" style="object-fit:cover" alt="" src="${esc(t.friend.avatar)}">`));
-    else e.innerHTML = icon('user', 'tile-ico');
+    e.append(el('div', 'f-pic', t.friend.avatar ? `<img alt="" src="${esc(t.friend.avatar)}">` : icon('user')));
     e.classList.add(t.friend.game ? 'in-game' : t.friend.state ? 'online' : 'offline');
   } else if (t.type === 'avatar') {
     e.append(el('div', 'avatar-tile', avatarPic(look(), 'full', 320, 'av-full')));
@@ -609,7 +634,7 @@ function metrics() {
   const vh = window.innerHeight;
   // Tile size from 0.5.0 (readable on a TV), with the console's tight gaps.
   const g = Math.max(3, Math.round(vh * 0.005));
-  const gridH = Math.min(vh * 0.6, vw * 0.36);
+  const gridH = Math.min(vh * 0.6, vw * 0.36) * (TILE_SIZES[state.settings.tileSize] || 1);
   const v = (gridH - 2 * g) / ROWS;
   const u = v * 1.32;
   const homeCols = 4;
@@ -644,7 +669,7 @@ function tileRect(t, m, px) {
 let cycleStep = 0;
 function cycleTiles() {
   const home = state.channels.find((c) => c.key === 'home');
-  if (!home || document.hidden) return;
+  if (!home || document.hidden || state.settings.cycleTiles === false) return;
   const tiles = home.tiles.filter((t) => t.cycle && t.cycle.list.length > 2);
   if (!tiles.length) return;
   cycleStep++;
@@ -1169,6 +1194,7 @@ function openGuide() {
     ] },
     { icon: 'gear', label: 'settings', items: () => [
       { icon: 'gear', label: 'dashboard settings', run: goChannel('settings') },
+      { icon: 'grid', label: 'customize', run: () => { closeAll(); openCustomize(); } },
       { icon: 'palette', label: `theme: ${state.settings.theme}`, run: async () => { state.settings = await api.setSettings({ theme: THEMES[(THEMES.indexOf(state.settings.theme) + 1) % THEMES.length] }); applySettings(); rebuild(); show(tab, m.index()); } },
       { icon: state.settings.sound ? 'sound' : 'mute', label: `sounds: ${state.settings.sound ? 'on' : 'off'}`, run: async () => { state.settings = await api.setSettings({ sound: !state.settings.sound }); applySettings(); show(tab, m.index()); } },
       { icon: 'gear', label: 'steam settings', run: () => { closeAll(); openSteam('settings'); } },
@@ -1444,25 +1470,41 @@ function openSignIn({ startup = false } = {}) {
   if (state.overlays.some((o) => o.signIn)) return;
   sound.play('open');
   const profiles = state.settings.profiles.length ? state.settings.profiles : [{ id: '', name: displayName(), gamerpic: state.settings.gamerpic, avatarLook: state.settings.avatarLook }];
-  const root = el('div', 'overlay library signin');
+  const root = el('div', 'overlay library signin' + (GL ? ' lineup' : ''));
   const panel = el('div', 'lib-panel');
   root.append(panel);
   panel.append(el('div', 'lib-head', `<h1>${startup ? 'who\'s playing?' : 'switch profile'}</h1>`));
-  const grid = el('div', 'lib-grid pic-grid');
+  const grid = el('div', GL ? 'si-stage' : 'lib-grid pic-grid');
   const cap = el('div', 'lib-caption');
   panel.append(grid, cap);
   const items = [...profiles.map((p) => ({ p })), { add: true }];
   let i = Math.max(0, profiles.findIndex((p) => p.id === state.settings.profile));
+  // With WebGL everyone's avatar stands on one stage, idling, with a name
+  // plate under each; otherwise gamerpic cards.
+  let lineup = null;
+  if (GL) {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'si-canvas';
+    grid.append(canvas);
+    lineup = new AvatarLineup(canvas);
+    lineup.setLooks(profiles.map((p) => normalizeLook(p.avatarLook)));
+    lineup.slots(items.slice(0, -1).map((_, k) => (k + 0.5) / items.length));
+  }
   const cards = items.map((it, k) => {
-    const c = el('div', 'card pic' + (it.add ? ' folder' : ''), it.add ? icon('user', 'pic-ico') : profilePic(it.p));
-    c.append(el('div', 'card-name', esc(it.add ? 'add profile' : it.p.name)));
+    const c = GL
+      ? el('div', 'si-slot' + (it.add ? ' add' : ''), `${it.add ? `<div class="si-add">${icon('user')}<b>+</b></div>` : ''}<div class="si-plate">${esc(it.add ? 'add profile' : it.p.name)}</div>`)
+      : el('div', 'card pic' + (it.add ? ' folder' : ''), it.add ? icon('user', 'pic-ico') : profilePic(it.p));
+    if (!GL) c.append(el('div', 'card-name', esc(it.add ? 'add profile' : it.p.name)));
+    if (GL && !it.add && it.p.id === state.settings.profile) c.classList.add('current');
     c.addEventListener('click', () => { if (k === i) choose(); else { focus(k); sound.play('move'); } });
     grid.append(c);
     return c;
   });
+  if (lineup) lineup.start();
   function focus(n) {
     i = Math.max(0, Math.min(items.length - 1, n));
     cards.forEach((c, k) => c.classList.toggle('focused', k === i));
+    if (lineup) lineup.focus(i);
     const it = items[i];
     cap.innerHTML = `<div class="cap-title">${esc(it.add ? 'add profile' : it.p.name)}</div><div class="cap-sub">${it.add ? 'everyone gets their own avatar, gamerpic, pins and theme' : it.p.id === state.settings.profile ? 'signed in' : ''}</div>`;
   }
@@ -1493,6 +1535,7 @@ function openSignIn({ startup = false } = {}) {
       if (i !== before) sound.play('move');
     },
     hints: () => (startup ? [['a', 'sign in']] : [['a', 'sign in'], ['b', 'back']]),
+    onClose: () => { if (lineup) setTimeout(() => lineup.dispose(), 450); },
   });
   requestAnimationFrame(() => focus(i));
 }
@@ -1706,10 +1749,115 @@ function openAvatarEditor() {
   });
 }
 
+// ---------- customize ----------
+// A guide-style panel: LB/RB pick a section, left/right (or A) change the
+// focused option, and the dashboard behind it updates straight away.
+
+function openCustomize() {
+  sound.play('open');
+  const root = el('div', 'overlay guide customize');
+  root.append(el('div', 'scrim'));
+  root.querySelector('.scrim').addEventListener('click', () => popOverlay());
+  const panel = el('div', 'guide-panel');
+  const tabsEl = el('div', 'guide-tabs');
+  const list = el('div', 'menu');
+  const info = el('div', 'cz-info');
+  panel.append(el('div', 'cz-title', 'customize'), tabsEl, list, info);
+  root.append(panel);
+
+  const save = async (patch) => {
+    state.settings = await api.setSettings(patch);
+    applySettings();
+    rebuild();
+  };
+  const step = (list, v, d) => list[(list.indexOf(v) + d + list.length) % list.length];
+  // A cycling option: label, current value, the values it steps through.
+  const opt = (icon, label, key, values, fmt = (v) => v, swatch = null, note = '') => ({
+    icon, label, note: fmt(state.settings[key]), swatch: swatch && swatch(state.settings[key]), info: note,
+    change: (d) => save({ [key]: step(values, state.settings[key], d) }),
+  });
+  const named = (v) => v || 'theme default';
+  const tabs = [
+    { icon: 'palette', label: 'colors', items: () => [
+      opt('palette', 'theme', 'theme', THEMES, (v) => v, null, 'the overall style; colors below go on top of it'),
+      opt('grid', 'tile color', 'tileColor', ['', ...Object.keys(TILE_HEX)], named, (v) => TILE_HEX[v] || 'var(--tile)', 'the color of the dashboard tiles'),
+      opt('image', 'background', 'bgColor', ['', ...Object.keys(BG_HEX)], named, (v) => (BG_HEX[v] ? `linear-gradient(${BG_HEX[v].join(',')})` : 'var(--bg-mid)'), 'the color behind the tiles'),
+    ] },
+    { icon: 'grid', label: 'layout', items: () => [
+      opt('grid', 'tile size', 'tileSize', Object.keys(TILE_SIZES), (v) => v, null, 'smaller tiles fit more on the screen at once'),
+      opt('info', 'text size', 'textSize', Object.keys(TEXT_SIZES), (v) => v, null, 'tile names and captions'),
+      opt('play', 'recent games', 'recentCount', COUNTS.recentCount, (v) => (v ? `${v} on the games tab` : 'none'), null, 'how many recent games the games tab shows next to the library'),
+      opt('friends', 'friends shown', 'friendCount', COUNTS.friendCount, (v) => `up to ${v}`, null, 'how many friends the social tab lists'),
+      { icon: 'refresh', label: 'cycle home games', note: state.settings.cycleTiles ? 'on' : 'off', info: 'the two small game tiles on home change every few seconds', change: () => save({ cycleTiles: !state.settings.cycleTiles }) },
+    ] },
+    { icon: 'controller', label: 'tabs', items: () => Object.entries(TAB_NAMES).map(([key, label]) => {
+      const off = state.settings.hiddenTabs.includes(key);
+      return {
+        icon: off ? 'mute' : 'grid', label, note: off ? 'hidden' : 'shown', info: 'home and settings always stay',
+        change: () => save({ hiddenTabs: off ? state.settings.hiddenTabs.filter((k) => k !== key) : [...state.settings.hiddenTabs, key] }),
+      };
+    }) },
+  ];
+
+  let tab = 0;
+  let m = null;
+  let items = [];
+  function show(t, at = 0) {
+    tab = (t + tabs.length) % tabs.length;
+    tabsEl.innerHTML = `<span class="btn btn-lb">LB</span>${tabs.map((tb, k) => `<span class="gtab${k === tab ? ' on' : ''}">${icon(tb.icon)}<em>${esc(tb.label)}</em></span>`).join('')}<span class="btn btn-rb">RB</span>`;
+    [...tabsEl.querySelectorAll('.gtab')].forEach((e, k) => e.addEventListener('click', () => { sound.play('channel'); show(k); }));
+    list.innerHTML = '';
+    items = tabs[tab].items().map((it) => ({ ...it, run: () => change(1) }));
+    m = menu(items, list, (it) => { info.textContent = it.info || ''; });
+    items.forEach((it, k) => {
+      if (!it.swatch) return;
+      const sw = el('i', 'cz-swatch');
+      sw.style.background = it.swatch;
+      list.children[k].querySelector('small').before(sw);
+    });
+    m.set(at);
+  }
+  async function change(d) {
+    const at = m.index();
+    sound.play('move');
+    await items[at].change(d);
+    show(tab, at);
+  }
+  show(0);
+
+  pushOverlay({
+    el: root,
+    handle(a) {
+      if (a === 'up') m.move(-1);
+      else if (a === 'down') m.move(1);
+      else if (a === 'left') change(-1);
+      else if (a === 'right' || a === 'a') change(1);
+      else if (a === 'lb' || a === 'rb') { sound.play('channel'); show(tab + (a === 'lb' ? -1 : 1)); }
+      else if (a === 'y') {
+        sound.play('select');
+        save({ tileColor: '', bgColor: '', tileSize: 'large', textSize: 'normal', hiddenTabs: [], recentCount: 6, friendCount: 24, cycleTiles: true })
+          .then(() => { show(tab, m.index()); toast('layout and colors reset'); });
+      } else if (a === 'b' || a === 'view') popOverlay();
+    },
+    hints: () => [['a', 'change'], ['lb', 'sections'], ['y', 'reset'], ['b', 'done']],
+  });
+}
+
 // ---------- settings / intro ----------
 
 function applySettings() {
-  document.body.dataset.theme = state.settings.theme;
+  const s = state.settings;
+  const b = document.body;
+  b.dataset.theme = s.theme;
+  const tile = TILE_HEX[s.tileColor];
+  const bg = BG_HEX[s.bgColor];
+  const vars = {
+    '--tile': tile, '--accent': tile, '--accent-2': tile && `color-mix(in srgb, ${tile} 70%, #000)`,
+    '--bg-top': bg && bg[0], '--bg-mid': bg && bg[1], '--bg-bot': bg && bg[2],
+  };
+  for (const [k, v] of Object.entries(vars)) if (v) b.style.setProperty(k, v); else b.style.removeProperty(k);
+  b.classList.toggle('custom-bg', !!bg);
+  b.style.setProperty('--text-scale', (TEXT_SIZES[s.textSize] || 1) * (0.5 + 0.5 * (TILE_SIZES[s.tileSize] || 1)));
   dressAvatar();
   sound.configure(state.settings);
 }
