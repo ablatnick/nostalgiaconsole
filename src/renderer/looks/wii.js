@@ -1,9 +1,15 @@
 // Channels: pages of rounded channel tiles (4 x 3) on a light pinstripe
-// background, a curved bottom bar with the clock and two round buttons,
-// and a channel preview screen (menu / start) before a game starts.
+// background, a pointing hand that glides to the focused channel, a bottom
+// bar that rises at both ends around two round buttons with the clock in
+// its dip, and a channel preview (menu / start) that zooms out of the
+// channel before a game starts.
 // Games, apps, streams and videos are channels; search, social, steam and
 // settings are folder channels that open their own page of channels.
-import { itemTitle, itemSub, itemArt, runClock } from './common.js';
+import { itemTitle, itemSub, itemArt } from './common.js';
+
+// An original pointing-hand cursor.
+const HAND = `<svg viewBox="0 0 64 80" aria-hidden="true"><path d="M22 6c3.3 0 6 2.7 6 6v22l2-.6V28c0-3 2.4-5.4 5.4-5.4S41 25 41 28v6.4l1.6-.3c3-.5 5.6 1.8 5.6 4.8v2.5l1.3-.2c3-.4 5.5 1.9 5.5 4.9V58c0 9.9-8.1 18-18 18h-6.6c-5.6 0-10.9-2.7-14.2-7.3L5.7 55.9c-1.8-2.5-1.3-6 1.1-7.9 2.4-1.9 5.8-1.6 7.8.7L16 50.4V12c0-3.3 2.7-6 6-6z" fill="#fff" stroke="#9aa6ae" stroke-width="2.4" stroke-linejoin="round"/><path d="M28 34v12M41 34.4v11.6M48.2 41.4V50" stroke="#c3ccd2" stroke-width="2.2" stroke-linecap="round"/></svg>`;
+const MAIL = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.5 7 8.5 6.5L20.5 7"/></svg>';
 
 const COLS = 4;
 const ROWS = 3;
@@ -21,20 +27,37 @@ export default function createWii(ctx, root) {
   root.innerHTML = '';
   const box = el('div', 'wii');
   const pages = el('div', 'wii-pages');
-  const arrowL = el('button', 'wii-arrow l', '&#9664;');
-  const arrowR = el('button', 'wii-arrow r', '&#9654;');
+  const arrowL = el('button', 'wii-arrow l', '<i></i>');
+  const arrowR = el('button', 'wii-arrow r', '<i></i>');
+  // The bar is high at both ends (where the round buttons sit) and dips in
+  // the middle, where the clock is.
+  const edge = 'M0 26 L150 26 C 205 26 215 92 290 92 L 710 92 C 785 92 795 26 850 26 L1000 26';
   const bar = el('div', 'wii-bar', `
-    <svg class="wii-curve" viewBox="0 0 1000 120" preserveAspectRatio="none"><path d="M0 40 Q 160 40 220 10 L 780 10 Q 840 40 1000 40 L 1000 120 L 0 120 Z"/></svg>
-    <button class="wii-round left">${icon('gear')}</button>
-    <div class="wii-time"><b></b><span></span></div>
-    <button class="wii-round right">${icon('friends')}</button>`);
+    <svg class="wii-curve" viewBox="0 0 1000 240" preserveAspectRatio="none">
+      <defs><linearGradient id="wiibar" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f7f8f9"/><stop offset=".35" stop-color="#e3e7ea"/><stop offset="1" stop-color="#d3d9dd"/></linearGradient></defs>
+      <path class="fill" d="${edge} L1000 240 L0 240 Z"/>
+      <path class="line" d="${edge}"/>
+    </svg>
+    <button class="wii-round left"><b class="wii-mark">N</b></button>
+    <div class="wii-time"><b><span class="h"></span><span class="colon">:</span><span class="m"></span><small class="ap"></small></b><span class="date"></span></div>
+    <button class="wii-round right">${MAIL}</button>`);
   const pv = el('div', 'wii-preview');
   const title = el('div', 'wii-folder');
-  box.append(pages, arrowL, arrowR, title, bar, pv);
+  const hand = el('div', 'wii-hand', HAND);
+  box.append(pages, arrowL, arrowR, title, bar, pv, hand);
   root.append(box);
-  const stopClock = runClock(bar.querySelector('.wii-time b'));
-  const dateEl = bar.querySelector('.wii-time span');
-  dateEl.textContent = new Date().toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric' });
+  const tick = () => {
+    const d = new Date();
+    const h = d.getHours();
+    bar.querySelector('.h').textContent = String(h % 12 || 12);
+    bar.querySelector('.m').textContent = String(d.getMinutes()).padStart(2, '0');
+    bar.querySelector('.ap').textContent = h < 12 ? 'AM' : 'PM';
+    bar.querySelector('.date').textContent = d.toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric' }).replace(',', '');
+  };
+  tick();
+  const clockId = setInterval(tick, 10000);
+  const stopClock = () => clearInterval(clockId);
+  let intro = true;
   arrowL.addEventListener('click', () => page(-1));
   arrowR.addEventListener('click', () => page(1));
   bar.querySelector('.left').addEventListener('click', () => { i = -1; layout(); press(); });
@@ -86,7 +109,6 @@ export default function createWii(ctx, root) {
             c.append(face);
           }
           else c.append(itemArt(ctx, t, ['header', 'portrait']));
-          c.append(el('div', 'wii-name', esc(itemTitle(t))));
           c.addEventListener('click', () => { if (k === i) press(); else { i = k; sound.play('move'); layout(); } });
         }
         pg.append(c);
@@ -95,7 +117,39 @@ export default function createWii(ctx, root) {
     }
     title.textContent = folder ? folder.title : '';
     title.classList.toggle('show', !!folder);
+    // Channels zoom in when the menu first appears or a folder opens.
+    pages.classList.remove('intro');
+    void pages.offsetWidth;
+    pages.classList.add('intro');
+    intro = false;
     layout();
+  }
+
+  // Geometry of channel k on the screen (without the page slide).
+  function chRect(k) {
+    const g = grid;
+    const s = k % PER;
+    return { x: g.left + (s % COLS) * (g.cw + g.gap), y: g.top + Math.floor(s / COLS) * (g.ch + g.gap), w: g.cw, h: g.ch };
+  }
+  let grid = { left: 0, top: 0, cw: 0, ch: 0, gap: 0 };
+
+  // The hand points at the focused channel, button or preview button.
+  function placeHand() {
+    let x;
+    let y;
+    if (preview) {
+      const b = pv.querySelector(preview.btn === 0 ? '.menu' : '.start');
+      const r = b && b.getBoundingClientRect();
+      if (!r || !r.width) { requestAnimationFrame(placeHand); return; }
+      x = r.left + r.width * 0.62; y = r.top + r.height * 0.55;
+    } else if (i < 0) {
+      const r = bar.querySelector(i === -1 ? '.left' : '.right').getBoundingClientRect();
+      x = r.left + r.width * 0.6; y = r.top + r.height * 0.55;
+    } else {
+      const r = chRect(i);
+      x = r.x + r.w * 0.66; y = r.y + r.h * 0.58;
+    }
+    hand.style.transform = `translate(${x}px, ${y}px)`;
   }
 
   function layout() {
@@ -105,13 +159,14 @@ export default function createWii(ctx, root) {
     const cw = Math.min((W * 0.84 - gap * (COLS - 1)) / COLS, ((H * 0.64 - gap * (ROWS - 1)) / ROWS) * 1.6);
     const ch = cw / 1.6;
     const gridW = cw * COLS + gap * (COLS - 1);
+    grid = { left: (W - gridW) / 2, top: H * 0.07, cw, ch, gap };
     box.style.setProperty('--cw', cw + 'px');
     box.style.setProperty('--ch', ch + 'px');
     box.style.setProperty('--gap', gap + 'px');
     const pageNow = i >= 0 ? Math.floor(i / PER) : (pages.dataset.page | 0);
     pages.dataset.page = pageNow;
     pages.style.left = (W - gridW) / 2 + 'px';
-    pages.style.top = H * 0.08 + 'px';
+    pages.style.top = H * 0.07 + 'px';
     pages.style.transform = `translateX(${-pageNow * (gridW + W * 0.2)}px)`;
     [...pages.children].forEach((pg, p) => { pg.style.left = p * (gridW + W * 0.2) + 'px'; });
     const all = pages.querySelectorAll('.wii-ch');
@@ -121,6 +176,7 @@ export default function createWii(ctx, root) {
     arrowR.classList.toggle('show', pageNow < n - 1);
     bar.querySelector('.left').classList.toggle('on', i === -1);
     bar.querySelector('.right').classList.toggle('on', i === -2);
+    placeHand();
     ctx.hints();
   }
 
@@ -183,7 +239,19 @@ export default function createWii(ctx, root) {
     btns.querySelector('.menu').addEventListener('click', () => closePreview());
     btns.querySelector('.start').addEventListener('click', () => { const tile = preview.tile; sound.play('select'); ctx.play(tile); setTimeout(() => closePreview(true), 500); });
     pv.append(frame, btns);
+    // Zoom out of the channel: start the frame at the channel's place.
+    const W = innerWidth;
+    const H = innerHeight;
+    const fw = W * 0.76;
+    const fh = Math.min(fw / 2, H * 0.58);
+    const fx = (W - fw) / 2;
+    const fy = H * 0.07;
+    Object.assign(frame.style, { left: fx + 'px', top: fy + 'px', width: fw + 'px', height: fh + 'px' });
+    const r = chRect(i);
+    frame.style.transform = `translate(${r.x - fx}px, ${r.y - fy}px) scale(${r.w / fw}, ${r.h / fh})`;
+    btns.style.top = fy + fh + H * 0.07 + 'px';
     pv.classList.add('show');
+    requestAnimationFrame(() => requestAnimationFrame(() => { frame.style.transform = 'none'; }));
     sound.play('open');
     previewLayout();
   }
