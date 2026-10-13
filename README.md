@@ -30,7 +30,7 @@ Screenshots use the test library from `test/make-fixture.js` (rendered with
   custom grid art straight from the Steam folder. Missing art comes from
   Steam's CDN.
 - **Game library** grid sorted by recently played, A to Z, most played, or
-  size on disk. You can **pin** games to spotlight.
+  size on disk. You can **pin** games to My Pins on home.
 - A 3D **avatar** that stands beside the steam pivot. Build it in the
   **my avatar** editor: body type, skin, hair, eyes, eyebrows, mouth, facial
   hair, glasses, hats and clothes, with a live preview. Y gives you a random
@@ -42,7 +42,7 @@ Screenshots use the test library from `test/make-fixture.js` (rendered with
   console-style pop-up notifications, synthesized interface sounds, a boot
   animation, and four themes: classic, midnight, ember and arctic.
 - **Moonlight**: every app on every paired host (Sunshine or GeForce
-  Experience) shows up in the streaming channel and starts with one press.
+  Experience) shows up on the streaming pivot and starts with one press.
 - Controller first, but keyboard and mouse work too. Gamepad input is ignored
   while a game or stream window has focus.
 
