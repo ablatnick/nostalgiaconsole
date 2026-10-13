@@ -50,6 +50,8 @@ only="$*"
 # Game details show the install path, so build the test library at a
 # neutral path rather than inside the checkout.
 FIXTURE_DIR=/tmp/nostalgiaconsole-demo node test/make-fixture.js
+# The test RetroArch, not whatever this machine has.
+export RETROARCH_DIR=/tmp/nostalgiaconsole-demo/RetroArch
 # lookshot <name> <dashboard style> <keys>
 lookshot() {
   keep=${SETTINGS:-}
@@ -60,11 +62,13 @@ lookshot() {
 
 shot home ''
 shot games 'E'
-shot video 'E,E,E'
-shot social 'E,E,E,E'
-shot steam 'E,E,E,E,E'
-shot settings 'E,E,E,E,E,E'
-shot customize 'E,E,E,E,E,E,Down,Return,E,wait300'
+shot retro 'E,E,E'
+shot collections 'E,E,E,E'
+shot video 'E,E,E,E,E'
+shot social 'E,E,E,E,E,E'
+shot steam 'E,E,E,E,E,E,E'
+shot settings 'E,E,E,E,E,E,E,E'
+shot customize 'E,E,E,E,E,E,E,E,Down,Return,E,wait300'
 shot guide 'G'
 shot details 'M'
 shot library 'G,Down,Return'
@@ -82,7 +86,9 @@ setupshot() {
 setupshot setup 'wait500'
 setupshot setup-style 'Return,wait300,Right,Right,wait1200'
 shot controls 'G,Down,Down,Down,Down,Down,Return,wait300'
-shot customize-live 'E,E,E,E,E,E,Down,Return,Down,Down,Right,Right,Down,Right,wait500'
+shot customize-live 'E,E,E,E,E,E,E,E,Down,Return,Down,Down,Right,Right,Down,Right,wait500'
+shot achievements 'M,Down,Down,Return,wait400'
+shot power 'G,Down,Down,Down,Down,Down,Down,Down,Down,Return,wait300'
 shot screensaver 'wait1500' classic --screensaver
 lookshot look-nxe nxe ''
 lookshot look-blades blades ''

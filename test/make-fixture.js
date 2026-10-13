@@ -114,4 +114,52 @@ write(path.join(ROOT, 'userdata', ACCOUNT, 'config/shortcuts.vdf'), Buffer.conca
   },
 }), Buffer.from([0x08])]));
 
+// Steam collections (cloud storage JSON): two by hand, Steam's hidden list,
+// and a dynamic one (a filter), which is skipped.
+const coll = (id, name, added, extra = {}) => [`user-collections.${id}`, { key: `user-collections.${id}`, timestamp: NOW, value: JSON.stringify({ id, name, added, removed: [], ...extra }), version: '1' }];
+write(path.join(ROOT, 'userdata', ACCOUNT, 'config/cloudstorage/cloud-storage-namespace-1.json'), JSON.stringify([
+  coll('favorite', 'Favorites', [1245620, 1145360, 413150]),
+  coll('uc-souls', 'Soulslikes', [1245620, 814380, 367520]),
+  coll('hidden', 'Hidden', [105600]),
+  coll('uc-dyn', 'Unplayed', [], { filterSpec: { nFormatVersion: 2 } }),
+  ['showcases.0', { key: 'showcases.0', timestamp: NOW, value: '{}', version: '1' }],
+]));
+
+// A RetroArch install with one playlist, box art and a runtime log.
+const RA = path.join(BASE, 'RetroArch');
+write(path.join(RA, 'retroarch.cfg'), 'playlist_directory = ":/playlists"\nthumbnails_directory = ":/thumbnails"\n');
+const SNES = 'Nintendo - Super Nintendo Entertainment System';
+const RETRO = [
+  ['Super Plumber World', '#d8342b'], ['Kart Racer: Turbo', '#2b7bd8'], ['Legend of the Hero: Link Story', '#3a9d3a'], ['Space Bounty: Metroid Run', '#7b3ad8'],
+];
+write(path.join(RA, 'playlists', SNES + '.lpl'), JSON.stringify({
+  version: '1.5', default_core_path: '/usr/lib/libretro/snes9x_libretro.so', default_core_name: 'Nintendo - SNES / SFC (Snes9x - Current)',
+  items: RETRO.map(([label]) => ({ path: `/roms/snes/${label.replace(/[^\w ]/g, '')}.sfc`, label, core_path: 'DETECT', core_name: 'DETECT', crc32: '00000000|crc', db_name: SNES + '.lpl' })),
+}, null, 2));
+// Plain colour box art (2:3) so the shots have something to show.
+const zlib = require('zlib');
+function png(w, h, hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const rows = [];
+  for (let y = 0; y < h; y++) {
+    const row = Buffer.alloc(1 + w * 3);
+    for (let x = 0; x < w; x++) {
+      const k = 1 - 0.45 * (y / h) - (x > w * 0.1 && x < w * 0.9 && y > h * 0.62 && y < h * 0.72 ? -0.4 : 0);
+      row[1 + x * 3] = Math.min(255, r * k); row[2 + x * 3] = Math.min(255, g * k); row[3 + x * 3] = Math.min(255, b * k);
+    }
+    rows.push(row);
+  }
+  const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = (buf) => { let c = 0xffffffff; for (const v of buf) c = crcTable[(c ^ v) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const chunk = (type, data) => { const t = Buffer.from(type); const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const c = Buffer.alloc(4); c.writeUInt32BE(crc(Buffer.concat([t, data]))); return Buffer.concat([len, t, data, c]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(Buffer.concat(rows))), chunk('IEND', Buffer.alloc(0))]);
+}
+for (const [label, color] of RETRO) {
+  write(path.join(RA, 'thumbnails', SNES, 'Named_Boxarts', label.replace(/[&*/:`<>?\\|"]/g, '_') + '.png'), png(120, 168, color));
+}
+// RetroArch names runtime log folders after the core (here "Snes9x").
+write(path.join(RA, 'playlists', 'logs', 'Snes9x', 'Super Plumber World.lrtl'),
+  JSON.stringify({ runtime: '12:30:00', last_played: new Date((NOW - DAY / 2) * 1000).toISOString().slice(0, 19).replace('T', ' ') }));
+
 console.log('fixture written to', path.dirname(ROOT));

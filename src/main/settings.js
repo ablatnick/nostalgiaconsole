@@ -13,7 +13,7 @@ const TEXT_SIZES = ['small', 'normal', 'large'];
 // Pivots that can be hidden (home and settings always stay).
 // Dashboard styles (src/renderer/looks). 'metro' is the 2011 360 look.
 const LOOKS = ['metro', 'nxe', 'blades', 'xmb', 'wii', 'ps5', 'switch', 'retro'];
-const TABS = ['search', 'games', 'apps', 'video', 'streaming', 'social', 'steam'];
+const TABS = ['search', 'games', 'apps', 'retro', 'collections', 'video', 'streaming', 'social', 'steam'];
 const COUNTS = { recentCount: [0, 3, 6, 9, 12], friendCount: [6, 12, 18, 24, 36] };
 // Minutes of no input before the screensaver; 0 = off.
 const SCREENSAVER = [0, 2, 5, 10, 20];
@@ -56,17 +56,30 @@ const DEFAULTS = {
   // Gamepad remapping: action -> standard-mapping button index.
   padMap: {},
   setupDone: false,
+  // Games hidden from the dashboard (ids like steam:123).
+  hidden: [],
+  // Wake-on-LAN MAC per Moonlight host uuid, when Moonlight doesn't know it.
+  wakeMacs: {},
+  wakeBeforeStream: true,
+  music: false,
+  musicVolume: 30,
+  reduceMotion: false,
+  highContrast: false,
+  lite: false,
+  // Kid profile: only these games (ids), no store, settings or quitting.
+  kid: false,
+  allowed: [],
 };
 
 // What each profile keeps for itself.
-const PROFILE_KEYS = ['gamertag', 'avatarLook', 'gamerpic', 'pinned', 'theme', 'tileColor', 'bgColor', 'look', 'jellyfinUser', 'dashSort', 'dashFilter'];
+const PROFILE_KEYS = ['gamertag', 'avatarLook', 'gamerpic', 'pinned', 'theme', 'tileColor', 'bgColor', 'look', 'jellyfinUser', 'dashSort', 'dashFilter', 'hidden', 'kid', 'allowed'];
 
 function sanitize(input) {
   const s = { ...DEFAULTS };
   if (!input || typeof input !== 'object') return s;
   if (THEMES.includes(input.theme)) s.theme = input.theme;
   if (LOOKS.includes(input.look)) s.look = input.look;
-  for (const k of ['sound', 'intro', 'showTools', 'fullscreen', 'communityAvatar', 'moonlight', 'avatar', 'autostart', 'cycleTiles', 'friendAlerts', 'setupDone']) {
+  for (const k of ['sound', 'intro', 'showTools', 'fullscreen', 'communityAvatar', 'moonlight', 'avatar', 'autostart', 'cycleTiles', 'friendAlerts', 'setupDone', 'wakeBeforeStream', 'music', 'reduceMotion', 'highContrast', 'lite', 'kid']) {
     if (typeof input[k] === 'boolean') s[k] = input[k];
   }
   if (Number.isFinite(input.volume)) s.volume = Math.max(0, Math.min(100, Math.round(input.volume)));
@@ -84,6 +97,16 @@ function sanitize(input) {
   if (TEXT_SIZES.includes(input.textSize)) s.textSize = input.textSize;
   if (Array.isArray(input.hiddenTabs)) s.hiddenTabs = [...new Set(input.hiddenTabs.filter((t) => TABS.includes(t)))];
   for (const [k, list] of Object.entries(COUNTS)) if (list.includes(input[k])) s[k] = input[k];
+  const ids = (list) => [...new Set(list.filter((p) => typeof p === 'string' && /^(steam|shortcut|owned):\d+$|^retro:[0-9a-f]{16}$|^moonlight:[0-9A-Fa-f-]{8,64}:\d+$/.test(p)))].slice(0, 2000);
+  if (Array.isArray(input.hidden)) s.hidden = ids(input.hidden);
+  if (Array.isArray(input.allowed)) s.allowed = ids(input.allowed);
+  if (Number.isFinite(input.musicVolume)) s.musicVolume = Math.max(0, Math.min(100, Math.round(input.musicVolume)));
+  if (input.wakeMacs && typeof input.wakeMacs === 'object') {
+    s.wakeMacs = {};
+    for (const [u, m] of Object.entries(input.wakeMacs).slice(0, 16)) {
+      if (/^[0-9A-Fa-f-]{8,64}$/.test(u) && /^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(m)) s.wakeMacs[u] = m.replace(/-/g, ':').toLowerCase();
+    }
+  }
   if (SCREENSAVER.includes(input.screensaver)) s.screensaver = input.screensaver;
   if (DASH_SORTS.includes(input.dashSort)) s.dashSort = input.dashSort;
   if (DASH_FILTERS.includes(input.dashFilter)) s.dashFilter = input.dashFilter;
@@ -98,7 +121,7 @@ function sanitize(input) {
   // name from the gamerpics folder.
   if (typeof input.gamerpic === 'string' && (input.gamerpic === '' || input.gamerpic === 'avatar' || /^[\w .()-]{1,80}\.(png|jpe?g|webp|gif)$/i.test(input.gamerpic))) s.gamerpic = input.gamerpic;
   if (Array.isArray(input.pinned)) {
-    s.pinned = [...new Set(input.pinned.filter((p) => typeof p === 'string' && /^(steam|shortcut):\d+$|^moonlight:[0-9A-Fa-f-]{8,64}:\d+$/.test(p)))].slice(0, 24);
+    s.pinned = [...new Set(input.pinned.filter((p) => typeof p === 'string' && /^(steam|shortcut):\d+$|^retro:[0-9a-f]{16}$|^moonlight:[0-9A-Fa-f-]{8,64}:\d+$/.test(p)))].slice(0, 24);
   }
   if (Array.isArray(input.profiles)) {
     s.profiles = input.profiles.slice(0, 8).filter((p) => p && /^p\d{1,6}$/.test(p.id)).map((p) => {
@@ -144,7 +167,7 @@ Settings.prototype.createProfile = function createProfile(name) {
     v.profile = 'p1';
   }
   const id = 'p' + (Math.max(0, ...v.profiles.map((p) => Number(p.id.slice(1)))) + 1);
-  v.profiles.push({ id, name: String(name || 'player').slice(0, 32), gamertag: String(name || '').slice(0, 32), avatarLook: null, gamerpic: '', pinned: [], theme: v.theme, look: v.look, jellyfinUser: '', dashSort: 'recent', dashFilter: 'all' });
+  v.profiles.push({ id, name: String(name || 'player').slice(0, 32), gamertag: String(name || '').slice(0, 32), avatarLook: null, gamerpic: '', pinned: [], theme: v.theme, look: v.look, jellyfinUser: '', dashSort: 'recent', dashFilter: 'all', hidden: [], kid: false, allowed: [] });
   return this.switchProfile(id);
 };
 

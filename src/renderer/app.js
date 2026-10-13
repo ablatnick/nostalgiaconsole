@@ -5,8 +5,10 @@ import { avatarSvg, PARTS, VIEW_HEAD, VIEW_FULL, normalizeLook, randomLook } fro
 import { AvatarView, AvatarLineup, snapshot, webglAvailable } from './avatar3d.js';
 import { LOOK_MODULES } from './looks/index.js';
 
-// 3D avatars when WebGL works, the flat drawing otherwise.
-const GL = webglAvailable();
+// 3D avatars when WebGL works, the flat drawing otherwise (and in lite
+// mode, which is read once at start-up).
+const GL_OK = webglAvailable();
+let GL = GL_OK;
 const picCache = new Map();
 function avatarPic(lk, view = 'head', size = 128, cls = 'gamerpic-av') {
   if (!GL) return avatarSvg(lk, { viewBox: view === 'head' ? VIEW_HEAD : VIEW_FULL, cls });
@@ -43,7 +45,7 @@ const BG_HEX = {
 };
 const TILE_SIZES = { huge: 1.15, large: 1, medium: 0.85, small: 0.72, tiny: 0.6 };
 const TEXT_SIZES = { small: 0.85, normal: 1, large: 1.2 };
-const TAB_NAMES = { search: 'search', games: 'games', apps: 'apps', video: 'video (jellyfin)', streaming: 'streaming (moonlight)', social: 'social (friends)', steam: 'steam' };
+const TAB_NAMES = { search: 'search', games: 'games', apps: 'apps', retro: 'retro (retroarch)', collections: 'collections', video: 'video (jellyfin)', streaming: 'streaming (moonlight)', social: 'social (friends)', steam: 'steam' };
 const COUNTS = { recentCount: [0, 3, 6, 9, 12], friendCount: [6, 12, 18, 24, 36] };
 // "show" filter for the games list in every style; settings.js has the keys.
 const DASH_FILTERS = {
@@ -190,17 +192,34 @@ function toast(msg) {
 
 // ---------- data ----------
 
+// Hidden games: the profile's own list plus Steam's hidden collection. A
+// kid profile sees only the games a parent allowed.
+function isHidden(g) {
+  return state.settings.hidden.includes(g.id) || (g.kind === 'steam' && (state.lib.steamHidden || []).includes(g.appid));
+}
+
+function visible(g) {
+  if (state.settings.kid) return state.settings.allowed.includes(g.id);
+  return !isHidden(g);
+}
+
 function indexLibrary() {
   const { lib, settings } = state;
   const steamGames = lib.games.filter((g) => g.installed || g.downloading)
     .concat(settings.showTools ? lib.tools.filter((t) => t.installed) : []);
-  state.steamGames = steamGames;
-  state.all = steamGames.concat(lib.shortcuts);
+  const everything = steamGames.concat(lib.shortcuts, lib.retro || []);
+  state.hiddenGames = everything.filter((g) => isHidden(g));
+  state.everything = everything;
+  state.steamGames = steamGames.filter(visible);
+  state.retro = (lib.retro || []).filter(visible);
+  state.shortcuts = lib.shortcuts.filter(visible);
+  state.all = state.steamGames.concat(state.shortcuts, state.retro);
   const ml = lib.moonlight || { hosts: [] };
   state.streams = settings.moonlight ? ml.hosts.flatMap((h) => h.apps.map((a) => ({
     id: `moonlight:${h.uuid}:${a.id}`, kind: 'moonlight', host: h.uuid, hostName: h.name, online: h.online,
     appid: a.id, name: a.name, boxart: a.boxart, lastPlayed: 0, playtime: 0,
   }))) : [];
+  if (settings.kid) state.streams = state.streams.filter(visible);
   state.byId = new Map(state.all.concat(state.streams).map((g) => [g.id, g]));
 }
 
@@ -255,6 +274,15 @@ function streamingChannel() {
       },
     });
   }
+  if (ml.installed && !state.settings.kid) {
+    tiles.push({
+      key: 'ml:pair', type: 'icon', icon: 'friends', label: 'pair a pc', value: 'enter a pin in sunshine', title: 'pair a pc',
+      sub: 'add another computer running sunshine', colors: ['#2a7f6f', '#124038'], activate: () => openPair(),
+    }, {
+      key: 'ml:wake', type: 'icon', icon: 'power', label: 'wake on lan', value: state.settings.wakeBeforeStream ? 'wakes the pc first' : 'off', title: 'wake on lan',
+      sub: 'turn a sleeping pc on before streaming', colors: ['#5a4f9e', '#2a2360'], activate: () => openWakeSetup(),
+    });
+  }
   return { key: 'streaming', title: 'streaming', tiles };
 }
 
@@ -270,6 +298,13 @@ function libraryTile() {
 function settingTiles() {
   const s = state.settings;
   const onoff = (v) => (v ? 'on' : 'off');
+  if (s.kid) {
+    return [
+      { key: 'set:profiles', type: 'icon', icon: 'friends', label: 'switch profile', value: '', title: 'profiles', activate: () => openSignIn() },
+      { key: 'set:avatar-edit', type: 'avatar', label: 'my avatar', value: 'customize', title: 'my avatar', activate: () => openAvatarEditor() },
+      { key: 'set:family', type: 'icon', icon: 'user', label: 'family', value: 'grown-ups only', title: 'family', colors: ['#2e9d6a', '#155036'], activate: () => openFamily() },
+    ];
+  }
   const set = (patch, msg) => async () => {
     state.settings = await api.setSettings(patch);
     applySettings();
@@ -326,8 +361,26 @@ function settingTiles() {
     { key: 'set:update', type: 'icon', icon: 'refresh', label: 'check for updates', value: '', title: 'updates',
       activate: async () => {
         const u = await api.checkUpdate();
-        toast(u ? `version ${u.version} is available on github` : 'you have the latest version');
+        if (u) offerUpdate(u); else toast('you have the latest version');
       } },
+    { key: 'set:music', type: 'icon', icon: 'sound', label: 'background music', value: s.music ? `on · ${s.musicVolume}%` : 'off', title: 'background music', sub: 'your own music, quietly behind the dashboard; it fades out for games and videos', colors: ['#c4517a', '#7a2347'],
+      activate: async () => {
+        if (!s.music && !(await api.musicList()).length) {
+          const dir = await api.musicFolder();
+          toast(`put some .mp3 / .ogg / .flac files in ${dir}, then turn this on`);
+          return;
+        }
+        await set({ music: !s.music })();
+      } },
+    { key: 'set:musicvol', type: 'icon', icon: 'volume', label: 'music volume', value: `${s.musicVolume}%`, title: 'music volume', colors: ['#9a3f63', '#5c1f39'], activate: set({ musicVolume: [10, 20, 30, 50, 70, 100][([10, 20, 30, 50, 70, 100].indexOf(s.musicVolume) + 1) % 6] }) },
+    { key: 'set:musicdir', type: 'icon', icon: 'library', label: 'music folder', value: '', title: 'music folder', sub: 'opens the folder the music plays from', colors: ['#7a3f63', '#45213a'], activate: async () => toast(`music folder: ${await api.musicFolder()}`) },
+    { key: 'set:hidden', type: 'icon', icon: 'mute', label: 'hidden games', value: `${state.hiddenGames.length} hidden`, title: 'hidden games', sub: 'games you hid (or hid in steam); open one to show it again', colors: ['#5d6b75', '#2f383e'],
+      activate: () => (state.hiddenGames.length ? openLibrary({ title: 'hidden games', list: state.hiddenGames, sort: 1 }) : toast('nothing is hidden · hide a game from its details')) },
+    { key: 'set:family', type: 'icon', icon: 'user', label: 'family', value: s.kid ? 'kid profile' : 'kid profiles, pin', title: 'family', sub: 'kid profiles that only see the games you allow, and a parent pin', colors: ['#2e9d6a', '#155036'], activate: () => openFamily() },
+    { key: 'set:wakestream', type: 'icon', icon: 'power', label: 'wake before streaming', value: onoff(s.wakeBeforeStream), title: 'wake before streaming', sub: 'send wake-on-lan to a sleeping pc and wait for it before streaming', colors: ['#5a4f9e', '#2a2360'], activate: set({ wakeBeforeStream: !s.wakeBeforeStream }) },
+    { key: 'set:motion', type: 'icon', icon: 'sparkle', label: 'reduce motion', value: onoff(s.reduceMotion), title: 'reduce motion', sub: 'no sliding, zooming or drifting; changes happen at once', colors: ['#3f6f8f', '#1f3d52'], activate: set({ reduceMotion: !s.reduceMotion }) },
+    { key: 'set:contrast', type: 'icon', icon: 'palette', label: 'high contrast', value: onoff(s.highContrast), title: 'high contrast', sub: 'stronger outlines and text', colors: ['#222', '#000'], activate: set({ highContrast: !s.highContrast }) },
+    { key: 'set:lite', type: 'icon', icon: 'rocket', label: 'lite mode', value: onoff(s.lite), title: 'lite mode', sub: 'for steam deck and slower pcs: flat avatars, no blur or drifting effects (avatars change on the next start)', colors: ['#4c7a2a', '#28431a'], activate: set({ lite: !s.lite }) },
     { key: 'set:volume', type: 'icon', icon: 'volume', label: 'volume', value: `${s.volume}%`, title: 'sound volume', sub: 'loudness of the interface sounds', colors: ['#1aa3a3', '#0d6464'], activate: set({ volume: VOLUMES[(VOLUMES.indexOf(s.volume) + 1) % VOLUMES.length] || 60 }) },
     { key: 'set:intro', type: 'icon', icon: 'sparkle', label: 'startup intro', value: onoff(s.intro), title: 'startup intro', sub: 'play the boot animation when nostalgiaconsole opens', colors: ['#d9a400', '#8d6900'], activate: set({ intro: !s.intro }) },
     { key: 'set:screensaver', type: 'icon', icon: 'image', label: 'screensaver', value: s.screensaver ? `after ${s.screensaver} min` : 'off', title: 'screensaver', sub: 'your game art drifts by when nobody has pressed anything (saves a tv from burn-in)', colors: ['#2a4f7a', '#13283f'], activate: set({ screensaver: next(SCREENSAVER_MIN, s.screensaver) }) },
@@ -451,6 +504,7 @@ function homePivot() {
   at(libraryTile(), 3, 0);
   const stream = state.streams[0];
   if (stream) at(streamTile(stream), 3, 1);
+  else if (state.settings.kid) at({ key: 'home:search', type: 'icon', icon: 'search', label: 'search', value: 'find a game', title: 'search', activate: () => searchGames() }, 3, 1);
   else at({ key: 'home:store', type: 'icon', icon: 'store', label: 'store', value: 'steam store', title: 'store', activate: () => openSteam('storefront') }, 3, 1);
   at(avatarTile(), 3, 2);
   return { key: 'home', title: 'home', tiles };
@@ -473,14 +527,18 @@ function buildPivots() {
     lt.w = 2; lt.h = 2;
     // Just a few recent games; the library tile has the rest.
     const extra = [];
-    const missing = notInstalled();
+    const missing = state.settings.kid ? [] : notInstalled();
     if (missing.length) {
       extra.push({ key: 'games:notinstalled', type: 'icon', icon: 'downloads', label: 'not installed', value: `${missing.length} games you own`, title: 'not installed',
         activate: () => openLibrary({ title: 'not installed', list: missing, sort: 1 }) });
     }
     pivots.push({ key: 'games', title: 'games', tiles: flow([lt, ...sorted(state.steamGames, 'recent').slice(0, state.settings.recentCount ?? 6).map((g) => gameTile(g)), ...extra]) });
   }
-  if (lib.shortcuts.length) pivots.push({ key: 'apps', title: 'apps', tiles: flow(sorted(lib.shortcuts, 'recent').map((g) => gameTile(g))) });
+  if (state.shortcuts.length) pivots.push({ key: 'apps', title: 'apps', tiles: flow(sorted(state.shortcuts, 'recent').map((g) => gameTile(g))) });
+  const retro = retroPivot();
+  if (retro) pivots.push(retro);
+  const cols = collectionsPivot();
+  if (cols) pivots.push(cols);
   const video = videoPivot();
   if (video) pivots.push(video);
   const streaming = streamingChannel();
@@ -490,7 +548,7 @@ function buildPivots() {
   }
   const st = steamTiles();
   if (st[0] && st[0].type === 'profile') { st[0].w = 2; st[0].h = 2; }
-  pivots.push({ key: 'steam', title: 'steam', tiles: flow(st) });
+  if (!state.settings.kid) pivots.push({ key: 'steam', title: 'steam', tiles: flow(st) });
   const friends = friendTiles();
   if (friends.length) {
     // A compact friends list: slim rows (picture + name), six per column.
@@ -500,6 +558,38 @@ function buildPivots() {
   }
   pivots.push({ key: 'settings', title: 'settings', tiles: flow(settingTiles()) });
   return pivots;
+}
+
+// RetroArch: the most recent games, then one tile per system.
+function retroPivot() {
+  if (!state.retro.length) return null;
+  const systems = [...new Set(state.retro.map((g) => g.system))];
+  const tiles = sorted(state.retro, 'recent').slice(0, 6).map((g) => gameTile(g));
+  for (const sys of systems) {
+    const list = state.retro.filter((g) => g.system === sys);
+    tiles.push({ key: 'retro:sys:' + sys, type: 'icon', icon: 'controller', label: shortSystem(sys), value: `${list.length} game${list.length === 1 ? '' : 's'}`, title: shortSystem(sys),
+      activate: () => openLibrary({ title: shortSystem(sys), list, sort: 1 }) });
+  }
+  return { key: 'retro', title: 'retro', tiles: flow(tiles) };
+}
+
+// "Nintendo - Super Nintendo Entertainment System" -> "super nintendo entertainment system"
+function shortSystem(sys) {
+  return String(sys).replace(/^[^-]+ - /, '').toLowerCase();
+}
+
+// Steam collections (Favorites and your own), as folders.
+function collectionGames(c) {
+  const ids = new Set(c.appids);
+  return state.all.filter((g) => ids.has(g.appid));
+}
+
+function collectionsPivot() {
+  const cols = (state.lib.collections || []).map((c) => ({ ...c, games: collectionGames(c) })).filter((c) => c.games.length);
+  if (!cols.length) return null;
+  const tiles = cols.map((c) => ({ key: 'col:' + c.id, type: 'icon', icon: c.id === 'favorite' ? 'pin' : 'library', label: c.name.toLowerCase(), value: `${c.games.length} game${c.games.length === 1 ? '' : 's'}`, title: c.name.toLowerCase(),
+    activate: () => openLibrary({ title: c.name.toLowerCase(), list: c.games, sort: 0 }) }));
+  return { key: 'collections', title: 'collections', tiles: flow(tiles) };
 }
 
 // Friends, in game first, then online, then offline.
@@ -517,7 +607,7 @@ function friendTiles() {
 
 // The same content as the pivots, as plain sections for the other
 // dashboard styles: no grid positions, every game in games, no home.
-const SECTION_ICONS = { search: 'search', games: 'controller', apps: 'grid', video: 'bigpicture', streaming: 'stream', social: 'friends', steam: 'store', settings: 'gear' };
+const SECTION_ICONS = { search: 'search', games: 'controller', apps: 'grid', retro: 'controller', collections: 'library', video: 'bigpicture', streaming: 'stream', social: 'friends', steam: 'store', settings: 'gear' };
 function catalog() {
   const hidden = new Set(state.settings.hiddenTabs || []);
   const strip = (t) => { const { c, r, w, h, hero, cycle, ...rest } = t; return rest; };
@@ -531,7 +621,7 @@ function catalog() {
 // The games list the styles show, with the guide's sort and "show" filter.
 function dashGames() {
   const f = state.settings.dashFilter || 'all';
-  const pool = f === 'shortcuts' || f === 'pinned' ? state.steamGames.concat(state.lib.shortcuts) : state.steamGames;
+  const pool = f === 'shortcuts' || f === 'pinned' ? state.steamGames.concat(state.shortcuts) : state.steamGames;
   return sorted(pool.filter((DASH_FILTERS[f] || DASH_FILTERS.all)[1]), state.settings.dashSort || 'recent');
 }
 
@@ -624,6 +714,14 @@ async function openSteam(action, id) {
 
 async function launch(g) {
   if (g.kind === 'jf') { if (g.type === 'Series') openVideoDetail(g); else playVideo(g); return; }
+  if (g.kind === 'retro') {
+    sound.play('launch');
+    music.duck();
+    notify('starting', g.name, { img: artUrl(g, 'boxart'), chime: false });
+    try { await api.retroLaunch(g.appid); } catch { sound.play('error'); toast(`could not start retroarch for ${g.name}`); }
+    return;
+  }
+  music.duck();
   sound.play('launch');
   wave();
   notify('starting game', g.name, { img: artUrl(g, 'header'), chime: false });
@@ -636,7 +734,14 @@ async function launch(g) {
 }
 
 async function startStream(g) {
+  if (state.settings.wakeBeforeStream && !CAPTURE && !(await api.reachable(g.host))) {
+    notify(`waking ${g.hostName}`, 'this can take up to a minute', { chime: true });
+    const r = await api.wake(g.host);
+    if (r === 'nomac') { sound.play('error'); toast(`${g.hostName} is off and its network address isn't known · settings › wake on lan`); return; }
+    if (r === 'timeout') { sound.play('error'); toast(`${g.hostName} didn't wake up · is wake-on-lan on in its bios?`); return; }
+  }
   sound.play('launch');
+  music.duck();
   wave();
   notify(`streaming from ${g.hostName}`, g.name, { img: g.boxart ? artUrl(g) : null, chime: false });
   try {
@@ -998,7 +1103,8 @@ const metroLook = {
 
 // Shared with the other styles (src/renderer/looks).
 const lookCtx = {
-  state, el, esc, icon, artEl, artUrl, sound, GL, AvatarView,
+  state, el, esc, icon, artEl, artUrl, sound, AvatarView,
+  get GL() { return GL; },
   catalog, recentItems, isPinned, gameSub, timeAgo, displayName, gamesLine, gamerscoreText, look: () => look(),
   avatarPic: (...a) => avatarPic(...a), fillGamerpic: (...a) => fillGamerpic(...a),
   activate: () => activateTile(),
@@ -1196,7 +1302,7 @@ function openDetail(g) {
 
   const ach = state.web && state.web.achievements.perGame[g.appid];
   const meta = [
-    g.notInstalled ? 'not installed' : g.kind === 'shortcut' ? 'non-steam shortcut' : 'steam game',
+    g.notInstalled ? 'not installed' : g.kind === 'shortcut' ? 'non-steam shortcut' : g.kind === 'retro' ? `retroarch · ${shortSystem(g.system)}` : 'steam game',
     ach ? `${ach.unlocked} of ${ach.total} achievements · ${ach.score}G` : '',
     g.downloading ? `downloading${g.progress != null ? ` · ${Math.round(g.progress * 100)}%` : ''}` : '',
     timeAgo(g.lastPlayed),
@@ -1213,13 +1319,18 @@ function openDetail(g) {
     { icon: 'play', label: 'play', note: g.needsUpdate ? 'steam updates it first' : '', run: () => { popOverlay({ silent: true }); launch(g); } },
     { icon: 'pin', label: isPinned(g) ? 'unpin from spotlight' : 'pin to spotlight', run: () => { popOverlay({ silent: true }); togglePin(g); } },
   ];
-  if (g.kind === 'steam') {
+  if (ach && !g.notInstalled) items.push({ icon: 'sparkle', label: 'achievements', note: `${ach.unlocked} / ${ach.total}`, run: () => openAchievements(g) });
+  if (g.kind === 'steam' && !state.settings.kid) {
     items.push(
       { icon: 'info', label: 'view in steam', run: () => openSteam('details', g.appid) },
       { icon: 'store', label: 'store page', run: () => openSteam('store', g.appid) },
     );
   }
-  items.push({ icon: 'library', label: 'back', run: () => popOverlay() });
+  if (!state.settings.kid && !g.notInstalled) {
+    const hidden = state.settings.hidden.includes(g.id);
+    const steamHidden = g.kind === 'steam' && (state.lib.steamHidden || []).includes(g.appid);
+    if (!steamHidden) items.push({ icon: hidden ? 'grid' : 'mute', label: hidden ? 'show on the dashboard' : 'hide from the dashboard', run: () => { popOverlay({ silent: true }); toggleHidden(g); } });
+  }
   const m = menu(items, list);
 
   pushOverlay({
@@ -1234,6 +1345,51 @@ function openDetail(g) {
       else if (a === 'view' || a === 'guide') openGuide();
     },
     hints: () => [['a', 'select'], ['x', 'play'], ['b', 'back']],
+  });
+}
+
+async function toggleHidden(g) {
+  const on = state.settings.hidden.includes(g.id);
+  const hidden = on ? state.settings.hidden.filter((x) => x !== g.id) : [...state.settings.hidden, g.id];
+  state.settings = await api.setSettings({ hidden });
+  rebuild();
+  toast(on ? `${g.name} is back on the dashboard` : `${g.name} is hidden · settings › hidden games brings it back`);
+}
+
+// Every achievement of a game: unlocked first (newest first), then locked.
+async function openAchievements(g) {
+  const list = await api.achievements(g.appid);
+  if (!list || !list.length) { toast('no achievement details for this game yet'); return; }
+  sound.play('open');
+  const root = el('div', 'overlay library achievements');
+  const panel = el('div', 'lib-panel');
+  const got = list.filter((a) => a.unlocked).length;
+  panel.append(el('div', 'lib-head', `<h1>${esc(g.name)}</h1><span class="ach-count">${got} of ${list.length} · ${got * 10}G</span>`));
+  const grid = el('div', 'ach-list');
+  panel.append(grid);
+  root.append(panel);
+  const rows = list.map((a) => {
+    const r = el('div', 'ach' + (a.unlocked ? ' on' : ''));
+    const pic = a.icon ? `<img alt="" src="nostalgia://ach/${esc(g.appid)}/${esc(a.icon)}.jpg">` : icon(a.unlocked ? 'sparkle' : 'clock');
+    r.innerHTML = `<div class="ach-pic">${pic}</div><div class="ach-text"><b>${esc(a.name)}</b><span>${esc(a.desc || '')}</span></div><small>${a.unlocked ? (a.at ? esc(new Date(a.at * 1000).toLocaleDateString()) : 'unlocked') : '10G'}</small>`;
+    grid.append(r);
+    return r;
+  });
+  let i = 0;
+  const set = (n) => {
+    i = Math.max(0, Math.min(rows.length - 1, n));
+    rows.forEach((r, k) => r.classList.toggle('focused', k === i));
+    rows[i].scrollIntoView({ block: 'nearest' });
+  };
+  set(0);
+  pushOverlay({
+    el: root,
+    handle(a) {
+      if (a === 'up' || a === 'down') { set(i + (a === 'up' ? -1 : 1)); sound.play('move'); }
+      else if (a === 'lt' || a === 'rt') set(i + (a === 'lt' ? -8 : 8));
+      else if (a === 'b' || a === 'a') popOverlay();
+    },
+    hints: () => [['b', 'back']],
   });
 }
 
@@ -1364,9 +1520,12 @@ function openGuide() {
       { icon: 'image', label: 'change gamerpic', run: () => { closeAll(); openGamerpics(); } },
       { icon: 'friends', label: 'switch profile', run: () => { closeAll(); openSignIn(); } },
       { icon: 'controller', label: 'controls and help', run: () => { closeAll(); openControls(); } },
-      { icon: 'bigpicture', label: 'steam big picture', run: () => { closeAll(); openSteam('bigpicture'); } },
-      { icon: 'fullscreen', label: 'toggle full screen', run: () => api.toggleFullscreen() },
-      { icon: 'power', label: 'quit nostalgiaconsole', run: () => api.quit() },
+      ...(state.settings.kid ? [] : [
+        { icon: 'bigpicture', label: 'steam big picture', run: () => { closeAll(); openSteam('bigpicture'); } },
+        { icon: 'fullscreen', label: 'toggle full screen', run: () => api.toggleFullscreen() },
+        { icon: 'power', label: 'power', note: 'sleep, restart, steam', run: () => { closeAll(); openPower(); } },
+        { icon: 'power', label: 'quit nostalgiaconsole', run: () => api.quit() },
+      ]),
     ] },
     { icon: 'play', label: 'games', items: () => [
       ...(resumeTile() ? [{ icon: 'play', label: resumeTile().title, note: 'quick resume', run: () => { closeAll(); resumeTile().activate(); } }] : []),
@@ -1378,17 +1537,17 @@ function openGuide() {
     ] },
     { icon: 'stream', label: 'streaming', items: () => [
       ...state.streams.map((g) => ({ icon: 'stream', label: g.name, note: g.hostName, run: () => { closeAll(); startStream(g); } })),
-      ...(ml && ml.installed ? [{ icon: 'stream', label: 'open moonlight', run: () => { closeAll(); api.openMoonlight(); } }] : []),
+      ...(ml && ml.installed && !state.settings.kid ? [{ icon: 'stream', label: 'open moonlight', run: () => { closeAll(); api.openMoonlight(); } }] : []),
       ...(!state.streams.length && !(ml && ml.installed) ? [{ icon: 'info', label: 'moonlight is not installed', run: () => {} }] : []),
     ] },
-    { icon: 'gear', label: 'settings', items: () => [
+    ...(state.settings.kid ? [] : [{ icon: 'gear', label: 'settings', items: () => [
       { icon: 'gear', label: 'dashboard settings', run: goChannel('settings') },
       { icon: 'grid', label: `dashboard style: ${LOOK_NAMES[state.settings.look] || 'metro'}`, run: async () => { const ks = Object.keys(LOOK_NAMES); state.settings = await api.setSettings({ look: ks[(ks.indexOf(state.settings.look) + 1) % ks.length] }); applySettings(); rebuild(); show(tab, m.index()); } },
       { icon: 'grid', label: 'customize', run: () => { closeAll(); openCustomize(); } },
       { icon: 'palette', label: `theme: ${state.settings.theme}`, run: async () => { state.settings = await api.setSettings({ theme: THEMES[(THEMES.indexOf(state.settings.theme) + 1) % THEMES.length] }); applySettings(); rebuild(); show(tab, m.index()); } },
       { icon: state.settings.sound ? 'sound' : 'mute', label: `sounds: ${state.settings.sound ? 'on' : 'off'}`, run: async () => { state.settings = await api.setSettings({ sound: !state.settings.sound }); applySettings(); show(tab, m.index()); } },
       { icon: 'gear', label: 'steam settings', run: () => { closeAll(); openSteam('settings'); } },
-    ] },
+    ] }]),
   ];
 
   let tab = 0;
@@ -1503,6 +1662,7 @@ function openVideoDetail(v) {
 
 async function playVideo(v) {
   const { default: Hls } = await import('./vendor/hls.mjs');
+  music.duck();
   sound.play('launch');
   const sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
   const root = el('div', 'overlay player');
@@ -1544,6 +1704,7 @@ async function playVideo(v) {
     loadVideo().then(() => rebuild());
   }
   pushOverlay({
+    player: true,
     el: root,
     handle(a) {
       hideAt = Date.now() + 3000;
@@ -1555,7 +1716,7 @@ async function playVideo(v) {
       else if (a === 'b') stop();
     },
     hints: () => [['a', 'pause'], ['lb', '−1 min'], ['rb', '+1 min'], ['b', 'stop']],
-    onClose: () => { if (!stopped) { stopped = true; clearInterval(timer); report('stop'); hls.destroy(); } },
+    onClose: () => { if (!stopped) { stopped = true; clearInterval(timer); report('stop'); hls.destroy(); } music.resume(); },
   });
 }
 
@@ -1704,6 +1865,9 @@ function openSignIn({ startup = false } = {}) {
   }
   async function choose() {
     const it = items[i];
+    // Leaving a kid profile (for a grown-up one, or a new one) needs the pin.
+    const target = it.add ? null : state.settings.profiles.find((p) => p.id === it.p.id);
+    if (state.settings.kid && (it.add || (target && !target.kid && it.p.id !== state.settings.profile)) && !(await askPin())) return;
     if (it.add) {
       const name = await openKeyboard({ title: 'profile name' });
       if (!name) return;
@@ -2201,6 +2365,267 @@ function openSetup() {
   });
 }
 
+// ---------- background music ----------
+// Files from the music folder, shuffled, quietly under the dashboard. It
+// fades out for games, streams and videos, and while another window is in
+// front.
+
+const music = (() => {
+  const audio = new Audio();
+  let list = [];
+  let i = 0;
+  let on = false;
+  let fade = null;
+  const vol = () => ((state.settings.musicVolume ?? 30) / 100) * 0.6;
+  function ramp(to, ms = 1200, then) {
+    clearInterval(fade);
+    const from = audio.volume;
+    const t0 = performance.now();
+    fade = setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / ms);
+      audio.volume = Math.max(0, Math.min(1, from + (to - from) * k));
+      if (k >= 1) { clearInterval(fade); if (then) then(); }
+    }, 50);
+  }
+  function next() {
+    if (!list.length) return;
+    audio.src = 'nostalgia://music/' + encodeURIComponent(list[i++ % list.length]);
+    audio.play().catch(() => {});
+  }
+  audio.addEventListener('ended', next);
+  audio.addEventListener('error', () => setTimeout(next, 500));
+  return {
+    async configure() {
+      const want = !!state.settings.music && !CAPTURE;
+      if (want && !on) {
+        list = (await api.musicList()).sort(() => Math.random() - 0.5);
+        if (!list.length) return 0;
+        on = true;
+        audio.volume = 0;
+        next();
+        if (document.hasFocus()) ramp(vol());
+      } else if (!want && on) {
+        on = false;
+        ramp(0, 600, () => audio.pause());
+      } else if (on) ramp(vol(), 300);
+      return list.length;
+    },
+    duck() { if (on) ramp(0, 800, () => audio.pause()); },
+    resume() {
+      if (!on || !document.hasFocus() || state.overlays.some((o) => o.player)) return;
+      audio.play().catch(() => {});
+      ramp(vol());
+    },
+  };
+})();
+window.addEventListener('blur', () => music.duck());
+window.addEventListener('focus', () => music.resume());
+
+// ---------- small confirm panel ----------
+
+function confirmPanel(title, choices) {
+  sound.play('open');
+  const root = el('div', 'overlay guide customize confirm');
+  root.append(el('div', 'scrim'));
+  const panel = el('div', 'guide-panel');
+  const list = el('div', 'menu');
+  panel.append(el('div', 'cz-title', esc(title)), list);
+  root.append(panel);
+  const m = menu(choices.concat([{ icon: 'library', label: 'cancel', run: () => popOverlay() }]), list);
+  pushOverlay({
+    el: root,
+    handle(a) {
+      if (a === 'up') m.move(-1);
+      else if (a === 'down') m.move(1);
+      else if (a === 'a') m.run();
+      else if (a === 'b') popOverlay();
+    },
+    hints: () => [['a', 'select'], ['b', 'cancel']],
+  });
+}
+
+function openPower() {
+  const act = (what, msg) => () => { closeAll(); toast(msg); setTimeout(() => api.power(what), 600); };
+  confirmPanel('power', [
+    { icon: 'refresh', label: 'restart steam', run: act('restartSteam', 'restarting steam…') },
+    { icon: 'power', label: 'sleep', run: act('sleep', 'going to sleep…') },
+    { icon: 'refresh', label: 'restart this pc', run: act('restart', 'restarting…') },
+    { icon: 'power', label: 'shut down', run: act('shutdown', 'shutting down…') },
+  ]);
+}
+
+// ---------- family: kid profiles and the parent pin ----------
+
+// Asks for the parent PIN (when one is set); resolves true when it matches.
+async function askPin(title = 'parent pin') {
+  if (!(state.keys && state.keys.pin)) return true;
+  const v = await openKeyboard({ title, secret: true, hint: 'the 4 to 8 digit pin a parent set' });
+  if (v === null) return false;
+  const ok = await api.pinCheck(v.trim());
+  if (!ok) { sound.play('error'); toast('wrong pin'); }
+  return ok;
+}
+
+async function openFamily() {
+  if (!(await askPin())) return;
+  sound.play('open');
+  const root = el('div', 'overlay guide customize family');
+  root.append(el('div', 'scrim'));
+  const panel = el('div', 'guide-panel');
+  const list = el('div', 'menu');
+  const info = el('div', 'cz-info');
+  panel.append(el('div', 'cz-title', 'family'), list, info);
+  root.append(panel);
+  let m = null;
+  const save = async (patch) => { state.settings = await api.setSettings(patch); applySettings(); rebuild(); };
+  function show(at = 0) {
+    list.innerHTML = '';
+    const s2 = state.settings;
+    const items = [
+      { icon: 'user', label: 'kid profile', note: s2.kid ? 'on' : 'off', info: `${displayName()} sees only the games you allow: no store, settings or quitting. switching profiles asks for the pin.`,
+        run: async () => {
+          if (!s2.kid && !(state.keys && state.keys.pin)) { toast('set a parent pin first'); return; }
+          await save({ kid: !s2.kid }); show(m.index());
+        } },
+      { icon: 'grid', label: 'allowed games', note: `${s2.allowed.length}`, info: 'pick the games this profile can see and play', run: () => openAllowed() },
+      { icon: 'info', label: state.keys && state.keys.pin ? 'change parent pin' : 'set a parent pin', info: '4 to 8 digits; needed to leave a kid profile or change these settings',
+        run: async () => {
+          const v = await openKeyboard({ title: 'new parent pin (4-8 digits)', secret: true });
+          if (v === null) return;
+          if (v && !/^\d{4,8}$/.test(v.trim())) { toast('the pin has to be 4 to 8 digits'); return; }
+          // askPin already checked the old one to get in here.
+          const ok = await api.pinSet(v.trim(), await currentPin());
+          state.keys = await api.keys();
+          toast(ok ? (v ? 'parent pin saved' : 'parent pin removed') : 'could not change the pin');
+          show(m.index());
+        } },
+    ];
+    m = menu(items, list, (it) => { info.textContent = it.info || ''; });
+    m.set(at);
+  }
+  // The old pin, for changing it: asked again only when one is set.
+  let pinCache = '';
+  async function currentPin() {
+    if (!(state.keys && state.keys.pin)) return '';
+    if (pinCache) return pinCache;
+    const v = await openKeyboard({ title: 'current parent pin', secret: true });
+    pinCache = v || '';
+    return pinCache;
+  }
+  show(0);
+  pushOverlay({
+    el: root,
+    handle(a) {
+      if (a === 'up') m.move(-1);
+      else if (a === 'down') m.move(1);
+      else if (a === 'a') m.run();
+      else if (a === 'b') popOverlay();
+    },
+    hints: () => [['a', 'select'], ['b', 'done']],
+  });
+}
+
+// Tick games on and off for a kid profile.
+function openAllowed() {
+  sound.play('open');
+  const root = el('div', 'overlay library allowed');
+  const panel = el('div', 'lib-panel');
+  panel.append(el('div', 'lib-head', '<h1>allowed games</h1><span class="ach-count">a ticks a game on or off</span>'));
+  const grid = el('div', 'ach-list');
+  panel.append(grid);
+  root.append(panel);
+  const games = sorted(state.everything, 'az').concat(state.lib.moonlight ? indexStreamsAll() : []);
+  const rows = games.map((g) => {
+    const r = el('div', 'ach');
+    grid.append(r);
+    return r;
+  });
+  const paint = () => games.forEach((g, k) => {
+    const on = state.settings.allowed.includes(g.id);
+    rows[k].classList.toggle('on', on);
+    rows[k].innerHTML = `<div class="ach-pic">${icon(on ? 'sparkle' : 'grid')}</div><div class="ach-text"><b>${esc(g.name)}</b><span>${esc(g.kind === 'moonlight' ? `stream · ${g.hostName}` : g.kind === 'retro' ? shortSystem(g.system) : g.kind === 'shortcut' ? 'non-steam' : 'steam')}</span></div><small>${on ? 'allowed' : ''}</small>`;
+  });
+  paint();
+  let i = 0;
+  const set = (n) => { i = Math.max(0, Math.min(rows.length - 1, n)); rows.forEach((r, k) => r.classList.toggle('focused', k === i)); if (rows[i]) rows[i].scrollIntoView({ block: 'nearest' }); };
+  set(0);
+  pushOverlay({
+    el: root,
+    async handle(a) {
+      if (a === 'up' || a === 'down') { set(i + (a === 'up' ? -1 : 1)); sound.play('move'); }
+      else if (a === 'lt' || a === 'rt') set(i + (a === 'lt' ? -8 : 8));
+      else if (a === 'a' && games[i]) {
+        const id = games[i].id;
+        const allowed = state.settings.allowed.includes(id) ? state.settings.allowed.filter((x) => x !== id) : [...state.settings.allowed, id];
+        state.settings = await api.setSettings({ allowed });
+        sound.play('select');
+        paint();
+        rebuild();
+      } else if (a === 'b') popOverlay();
+    },
+    hints: () => [['a', 'allow'], ['b', 'done']],
+  });
+}
+
+// Every Moonlight app, even ones a kid profile can't see yet.
+function indexStreamsAll() {
+  const ml = state.lib.moonlight || { hosts: [] };
+  return ml.hosts.flatMap((h) => h.apps.map((a) => ({ id: `moonlight:${h.uuid}:${a.id}`, kind: 'moonlight', name: a.name, hostName: h.name })));
+}
+
+// ---------- moonlight: pairing and wake-on-lan setup ----------
+
+async function openPair() {
+  const address = await openKeyboard({ title: 'pc to pair (name or ip address)', hint: 'the computer running sunshine, for example 192.168.1.20' });
+  if (!address) return;
+  const pin = String(Math.floor(1000 + Math.random() * 9000));
+  sound.play('open');
+  const root = el('div', 'overlay guide customize pairing');
+  root.append(el('div', 'scrim'));
+  const panel = el('div', 'guide-panel');
+  panel.append(el('div', 'cz-title', 'pair a pc'), el('div', 'setup-body', `<b class="pair-pin">${pin}</b><p>on ${esc(address.trim())}, open sunshine's web page (https://localhost:47990 there), go to <i>pin</i>, type this number and press send. waiting for it…</p>`));
+  root.append(panel);
+  pushOverlay({ el: root, handle(a) { if (a === 'b') popOverlay(); }, hints: () => [['b', 'cancel']] });
+  const ok = await api.pair(address.trim(), pin);
+  if (state.overlays[state.overlays.length - 1] && state.overlays[state.overlays.length - 1].el === root) popOverlay({ silent: true });
+  if (ok) { sound.play('select'); toast(`paired with ${address.trim()}`); state.lib = await api.getLibrary(); rebuild(); }
+  else { sound.play('error'); toast('pairing didn\'t finish · check the pin and that sunshine is running'); }
+}
+
+async function openWakeSetup() {
+  const hosts = (state.lib.moonlight && state.lib.moonlight.hosts) || [];
+  if (!hosts.length) { toast('pair a pc in moonlight first'); return; }
+  confirmPanel('wake on lan', hosts.map((h) => ({
+    icon: 'power', label: h.name, note: (state.settings.wakeMacs || {})[h.uuid] || h.mac || 'address not set',
+    run: async () => {
+      const v = await openKeyboard({ title: `${h.name}: network (mac) address`, value: (state.settings.wakeMacs || {})[h.uuid] || h.mac || '', hint: 'like 78:20:51:3c:ff:d2 · on windows: getmac /v in a command prompt' });
+      if (v === null) return;
+      if (v && !/^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(v.trim())) { toast('that doesn\'t look like a mac address'); return; }
+      const wakeMacs = { ...(state.settings.wakeMacs || {}) };
+      if (v) wakeMacs[h.uuid] = v.trim(); else delete wakeMacs[h.uuid];
+      state.settings = await api.setSettings({ wakeMacs });
+      popOverlay({ silent: true });
+      toast(v ? `${h.name} can be woken before streaming` : 'address removed');
+      rebuild();
+    },
+  })));
+}
+
+// ---------- one-press updates ----------
+
+async function offerUpdate(u) {
+  confirmPanel(`version ${u.version} is out`, [
+    { icon: 'downloads', label: 'download and install', run: async () => {
+      closeAll();
+      notify('updating', `downloading ${u.version}…`, { chime: false });
+      const r = await api.installUpdate();
+      if (r && r.ok) notify('updated', 'restarting into the new version', { chime: true });
+      else if (r && r.manual) toast(`get ${u.version} from github (this kind of install can't update itself)`);
+      else toast(`update failed: ${(r && r.error) || 'unknown error'}`);
+    } },
+  ]);
+}
+
 // ---------- screensaver ----------
 // After the chosen minutes without input, game art drifts across the
 // screen with the clock. Any input wakes it without acting. It never starts
@@ -2282,7 +2707,12 @@ function applySettings() {
   for (const [k, v] of Object.entries(vars)) if (v) b.style.setProperty(k, v); else b.style.removeProperty(k);
   b.classList.toggle('custom-bg', !!bg);
   b.classList.toggle('custom-tile', !!tile);
+  b.classList.toggle('calm', !!s.reduceMotion);
+  b.classList.toggle('contrast', !!s.highContrast);
+  b.classList.toggle('lite', !!s.lite);
+  b.classList.toggle('kid', !!s.kid);
   setPadMap(s.padMap);
+  music.configure();
   b.style.setProperty('--text-scale', (TEXT_SIZES[s.textSize] || 1) * (0.5 + 0.5 * (TILE_SIZES[s.tileSize] || 1)));
   dressAvatar();
   sound.configure(state.settings);
@@ -2360,6 +2790,7 @@ async function boot() {
   state.lib = lib;
   state.settings = settings;
   state.avatarStamp = Date.now();
+  GL = GL_OK && !settings.lite;
   applySettings();
   state.channels = buildChannels();
   state.ch = state.channels.findIndex((c) => c.key === 'home');

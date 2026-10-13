@@ -12,6 +12,9 @@ const { SteamWeb } = require('./steamweb');
 const { LocalStats } = require('./localstats');
 const { Secrets } = require('./secrets');
 const { Jellyfin } = require('./jellyfin');
+const { RetroArch } = require('./retroarch');
+const { PlayLog } = require('./playlog');
+const { AppNames } = require('./appnames');
 const { screen } = require('electron');
 const { execFile } = require('child_process');
 const os = require('os');
@@ -51,6 +54,9 @@ let secrets = null;
 let steamWeb = null;
 let localStats = null;
 let jellyfin = null;
+const retro = new RetroArch();
+let playlog = null;
+let appNames = null;
 const moonlight = new Moonlight();
 const watchers = [];
 
@@ -63,6 +69,7 @@ const SOUND_NAMES = ['move', 'channel', 'select', 'back', 'open', 'close', 'erro
 const SOUND_EXT = { '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.flac': 'audio/flac' };
 
 // Gamerpics are pictures the user puts in <user data>/gamerpics.
+const MUSIC_EXT = { '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.flac': 'audio/flac', '.wav': 'audio/wav', '.opus': 'audio/ogg' };
 const PIC_EXT = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' };
 function gamerpics() {
   const dir = path.join(app.getPath('userData'), 'gamerpics');
@@ -73,6 +80,13 @@ function gamerpics() {
 
 // A sound pack is a folder of files named after the interface sounds
 // (move.wav, select.ogg, ...) in <user data>/sounds.
+// Background music: audio files in <userData>/music.
+function musicFiles() {
+  const dir = path.join(app.getPath('userData'), 'music');
+  try { fs.mkdirSync(dir, { recursive: true }); } catch { /* read-only */ }
+  try { return fs.readdirSync(dir).filter((f) => MUSIC_EXT[path.extname(f).toLowerCase()] && /^[^/\\]{1,200}$/.test(f)).sort(); } catch { return []; }
+}
+
 function soundPack() {
   const dir = path.join(app.getPath('userData'), 'sounds');
   const out = {};
@@ -136,8 +150,24 @@ async function route(request) {
     const full = path.join(app.getPath('userData'), 'sounds', file);
     return new Response(await fs.promises.readFile(full), { headers: { 'content-type': SOUND_EXT[path.extname(file).toLowerCase()] } });
   }
+  if (url.host === 'music') {
+    const name = decodeURIComponent(url.pathname).replace(/^\/+/, '');
+    if (!musicFiles().includes(name)) return new Response('not found', { status: 404 });
+    return new Response(await fs.promises.readFile(path.join(app.getPath('userData'), 'music', name)), { headers: { 'content-type': MUSIC_EXT[path.extname(name).toLowerCase()] } });
+  }
+  if (url.host === 'ach') {
+    // Achievement icons from Steam's CDN: /<appid>/<icon hash>.jpg only.
+    const m = url.pathname.match(/^\/(\d+)\/([0-9a-f]{40})\.jpg$/);
+    if (!m) return new Response('not found', { status: 404 });
+    return net.fetch(`https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/${m[1]}/${m[2]}.jpg`);
+  }
   if (url.host === 'art') {
     const [source, id, kind] = url.pathname.split('/').filter(Boolean);
+    if (source === 'retro' && /^[0-9a-f]{16}$/.test(id || '')) {
+      const file = retro.artFile(id, kind);
+      if (!file) return new Response('not found', { status: 404 });
+      return new Response(await fs.promises.readFile(file), { headers: { 'content-type': 'image/png' } });
+    }
     if (source === 'avatar' && /^\d+$/.test(id || '')) {
       try {
         return new Response(await fs.promises.readFile(avatarFile(id)), { headers: { 'content-type': 'image/jpeg' } });
@@ -168,7 +198,10 @@ function publicLibrary() {
     user,
     games: lib.games,
     tools: lib.tools,
-    shortcuts: lib.shortcuts,
+    shortcuts: (lib.shortcuts || []).map((g) => playlog.merge(g)),
+    retro: retro.list().map((g) => playlog.merge(g)),
+    collections: lib.collections || [],
+    steamHidden: lib.hidden || [],
     moonlight: moonlight.summary(),
     platform: process.platform,
     steamDeck: process.env.SteamDeck === '1' || fs.existsSync('/etc/steamos-release'),
@@ -177,12 +210,16 @@ function publicLibrary() {
 
 function refresh(push) {
   library = steam.loadLibrary(opts.steamRoot);
+  retro.load(library.libraries || []);
   art.setLibrary(library);
   watchLibraries();
   checkDownloads();
   moonlight.loadCached();
   if (push) pushLibrary();
   if (settings.values.moonlight) moonlight.refresh().then((changed) => changed && pushLibrary());
+  if (!opts.capture && appNames && library.played && library.played.length) {
+    appNames.fill(library.played.map((g) => g.appid)).then((added) => { if (added && win && !win.isDestroyed()) win.webContents.send('web', webData()); });
+  }
 }
 
 function pushLibrary() {
@@ -260,7 +297,11 @@ function createWindow() {
   Menu.setApplicationMenu(null);
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
-  win.on('focus', () => refreshSoon());
+  win.on('focus', () => {
+    refreshSoon();
+    if (playlog && playlog.back()) pushLibrary();
+  });
+  win.on('blur', () => { if (playlog) playlog.away(); });
   let query = opts.capture ? '?capture=1' + (arg('intro') ? '&intro=1' : '') + (arg('screensaver') ? '&screensaver=1' : '') : '';
   if (opts.capture && opts.avatarShot) query += '&avatarShot=1&look=' + encodeURIComponent(typeof opts.avatarShot === 'string' ? opts.avatarShot : '{}');
   win.loadURL('nostalgia://ui/index.html' + query);
@@ -328,7 +369,11 @@ function webData() {
   return {
     enabled: true,
     keyed: secrets.status().steam,
-    notInstalled: secrets.status().steam ? owned.filter((g) => !installed.has(g.appid) && !steam.isTool(g.appid, g.name)) : [],
+    // With a key: everything owned. Without: games played on this account
+    // that aren't installed here, once the store has told us their names.
+    notInstalled: secrets.status().steam
+      ? owned.filter((g) => !installed.has(g.appid) && !steam.isTool(g.appid, g.name))
+      : (library.played || []).map((g) => ({ ...g, name: appNames && appNames.get(g.appid) })).filter((g) => g.name && !steam.isTool(g.appid, g.name)),
     achievements: achievementSummary(),
     friends: people.map((p) => ({ ...p, avatar: friendPics.has(p.steamid) ? `nostalgia://friend/${p.steamid}` : '' })),
   };
@@ -482,6 +527,105 @@ async function checkUpdate() {
   return null;
 }
 
+// ---------- power and one-press updates ----------
+
+function run(cmd, args) {
+  return new Promise((resolve) => {
+    execFile(cmd, args, { windowsHide: true, timeout: 20000 }, (err) => resolve(!err));
+  });
+}
+
+async function power(what) {
+  if (opts.capture) return 'capture';
+  const win32 = process.platform === 'win32';
+  if (what === 'restartSteam') {
+    if (win32) await run(path.join(library.root || 'C:\\Program Files (x86)\\Steam', 'steam.exe'), ['-shutdown']);
+    else {
+      const { linuxCommand } = require('./launch');
+      const cmd = linuxCommand(library.root, '-shutdown');
+      if (cmd) await run(cmd[0], cmd[1]);
+    }
+    // Steam takes a few seconds to let go; then start it again.
+    setTimeout(() => openSteam(shell, library.root, 'library').catch(() => {}), 9000);
+    return 'ok';
+  }
+  const cmds = win32 ? {
+    sleep: ['powershell', ['-NoProfile', '-Command', 'Add-Type -AssemblyName System.Windows.Forms; [void][System.Windows.Forms.Application]::SetSuspendState("Suspend", $false, $false)']],
+    restart: ['shutdown', ['/r', '/t', '0']],
+    shutdown: ['shutdown', ['/s', '/t', '0']],
+  } : {
+    sleep: ['systemctl', ['suspend']],
+    restart: ['systemctl', ['reboot']],
+    shutdown: ['systemctl', ['poweroff']],
+  };
+  const c = cmds[what];
+  if (!c) return 'unknown';
+  return (await run(c[0], c[1])) ? 'ok' : 'failed';
+}
+
+// Downloads the new release for this kind of install, checks it against
+// the sha256 GitHub publishes for it, and swaps it in. Progress goes to the
+// renderer as 'update-progress' (0..1).
+let updating = false;
+async function installUpdate() {
+  if (opts.capture || updating) return { error: 'busy' };
+  const send = (p) => { if (win && !win.isDestroyed()) win.webContents.send('update-progress', p); };
+  let rel;
+  try {
+    const res = await net.fetch('https://api.github.com/repos/ablatnick/nostalgiaconsole/releases/latest', { headers: { accept: 'application/vnd.github+json' } });
+    rel = await res.json();
+  } catch { return { error: 'offline' }; }
+  const assets = rel.assets || [];
+  const portable = process.env.PORTABLE_EXECUTABLE_FILE;
+  const appImage = process.env.APPIMAGE;
+  const pick = process.platform === 'win32'
+    ? assets.find((a) => (portable ? /-portable\.exe$/ : /Setup.*\.exe$/).test(a.name))
+    : appImage ? assets.find((a) => /\.AppImage$/.test(a.name)) : null;
+  if (!pick) return { manual: rel.html_url };
+  updating = true;
+  try {
+    const res = await net.fetch(pick.browser_download_url);
+    if (!res.ok) return { error: `download failed (${res.status})` };
+    const total = Number(res.headers.get('content-length')) || pick.size || 0;
+    const reader = res.body.getReader();
+    const chunks = [];
+    let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(Buffer.from(value));
+      got += value.length;
+      if (total) send(got / total);
+    }
+    const buf = Buffer.concat(chunks);
+    const want = String(pick.digest || '').replace(/^sha256:/, '');
+    const have = require('crypto').createHash('sha256').update(buf).digest('hex');
+    if (want && want !== have) return { error: 'the download did not match its checksum' };
+    if (process.platform === 'win32') {
+      const dest = portable
+        ? path.join(path.dirname(portable), pick.name)
+        : path.join(os.tmpdir(), pick.name);
+      fs.writeFileSync(dest, buf);
+      // The installer closes us, installs silently and starts the new
+      // version (--force-run); a portable build just starts the new file.
+      const { spawn } = require('child_process');
+      spawn(dest, portable ? [] : ['/S', '--force-run'], { detached: true, stdio: 'ignore' }).unref();
+      setTimeout(() => app.quit(), 800);
+      return { ok: rel.tag_name };
+    }
+    const tmp = appImage + '.new';
+    fs.writeFileSync(tmp, buf, { mode: 0o755 });
+    fs.renameSync(tmp, appImage);
+    app.relaunch({ execPath: appImage });
+    setTimeout(() => app.exit(0), 500);
+    return { ok: rel.tag_name };
+  } catch (e) {
+    return { error: e.message };
+  } finally {
+    updating = false;
+  }
+}
+
 function applyAutostart(on) {
   if (opts.capture) return;
   if (process.platform === 'win32' || process.platform === 'darwin') {
@@ -516,6 +660,58 @@ ipcMain.handle('jf:shelves', async () => {
   if (!jellyfin.configured()) return null;
   try { return await jellyfin.shelves(settings.values.jellyfinUser); } catch (e) { return { error: e.message }; }
 });
+ipcMain.handle('achievements:get', (_e, appid) => {
+  if (!/^\d+$/.test(String(appid))) return null;
+  if (webFixture()) {
+    const g = (webFixture().web.achievements.perGame || {})[appid];
+    if (!g) return null;
+    return Array.from({ length: g.total }, (_, i) => ({ name: `achievement ${i + 1}`, desc: i < g.unlocked ? 'unlocked in the test library' : 'not yet', icon: '', unlocked: i < g.unlocked, at: i < g.unlocked ? Math.floor(Date.now() / 1000) - i * 86400 : 0 }));
+  }
+  const user = library && library.user;
+  return user ? localStats.details(library.root, user.accountId, String(appid)) : null;
+});
+ipcMain.handle('retro:launch', (_e, id) => {
+  if (opts.capture || !/^[0-9a-f]{16}$/.test(String(id))) return null;
+  const name = retro.launch(String(id));
+  playlog.start('retro:' + id);
+  watchGame();
+  return name;
+});
+// Wake-on-LAN, then wait (up to 90 s) for the host to answer.
+ipcMain.handle('moonlight:wake', async (_e, uuid) => {
+  if (opts.capture) return 'capture';
+  const mac = (settings.values.wakeMacs || {})[uuid];
+  if (await moonlight.reachable(uuid)) return 'awake';
+  try { await moonlight.wake(uuid, mac); } catch (e) { return 'nomac'; }
+  for (let i = 0; i < 45; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    if (await moonlight.reachable(uuid)) return 'woke';
+    if (i % 5 === 4) try { await moonlight.wake(uuid, mac); } catch { /* keep waiting */ }
+  }
+  return 'timeout';
+});
+ipcMain.handle('moonlight:reachable', (_e, uuid) => moonlight.reachable(String(uuid)));
+ipcMain.handle('moonlight:pair', async (_e, address, pin) => {
+  if (opts.capture) return false;
+  const ok = await moonlight.pair(String(address), String(pin)).catch(() => false);
+  if (ok) { moonlight.loadCached(); await moonlight.refresh(true).catch(() => {}); pushLibrary(); }
+  return ok;
+});
+ipcMain.handle('power:act', (_e, what) => power(String(what)));
+ipcMain.handle('music:list', () => musicFiles());
+ipcMain.handle('music:folder', async () => {
+  const dir = path.join(app.getPath('userData'), 'music');
+  fs.mkdirSync(dir, { recursive: true });
+  if (!opts.capture) await shell.openPath(dir);
+  return dir;
+});
+ipcMain.handle('pin:check', (_e, pin) => !secrets.get('parentPin') || String(pin) === secrets.get('parentPin'));
+ipcMain.handle('pin:set', (_e, pin, old) => {
+  if (secrets.get('parentPin') && String(old) !== secrets.get('parentPin')) return false;
+  secrets.set({ parentPin: String(pin || '') });
+  return true;
+});
+ipcMain.handle('update:install', () => installUpdate());
 ipcMain.handle('jf:users', async () => { try { return await jellyfin.users(); } catch { return []; } });
 ipcMain.handle('jf:episodes', (_e, id) => (/^[\w-]+$/.test(String(id)) ? jellyfin.episodes(String(id)) : []));
 ipcMain.handle('jf:report', (_e, kind, body) => jellyfin.report(kind, body));
@@ -594,7 +790,12 @@ function comeBack() {
 ipcMain.handle('steam:open', async (_e, action, id) => {
   if (opts.capture) return 'capture';
   const url = await openSteam(shell, library.root, action, id);
-  if (action === 'run') { watchGame(); watchAchievements(id); }
+  if (action === 'run') {
+    watchGame();
+    watchAchievements(id);
+    const sc = (library.shortcuts || []).find((g) => g.gameId === String(id));
+    if (sc) playlog.start(sc.id);
+  }
   if (action === 'run' && win) {
     const after = settings.values.afterLaunch;
     if (after === 'minimize') setTimeout(() => win && !win.isDestroyed() && win.minimize(), 1500);
@@ -656,6 +857,8 @@ app.whenReady().then(() => {
   steamWeb = new SteamWeb(net, app.getPath('userData'));
   localStats = new LocalStats(net);
   jellyfin = new Jellyfin(net, secrets);
+  playlog = new PlayLog(app.getPath('userData'));
+  appNames = new AppNames(net, app.getPath('userData'));
   protocol.handle('nostalgia', serve);
   refresh(false);
   createWindow();

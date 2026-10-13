@@ -139,6 +139,23 @@ function readRegistryHosts() {
   return out;
 }
 
+// Moonlight saves the host's MAC (learned on the LAN) as a 6-byte array.
+function macOf(v) {
+  if (!v) return '';
+  const raw = String(v).replace(/^@ByteArray\(([\s\S]*)\)$/, '$1');
+  if (/^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(raw)) return raw.replace(/-/g, ':').toLowerCase();
+  if (raw.length !== 6) return '';
+  return [...raw].map((c) => (c.charCodeAt(0) & 255).toString(16).padStart(2, '0')).join(':');
+}
+
+// Wake-on-LAN magic packet: 6 x 0xff, then the MAC 16 times, sent to the
+// broadcast address and straight at each known address (port 9).
+function wakePacket(mac) {
+  const m = String(mac).replace(/[:-]/g, '');
+  if (!/^[0-9a-f]{12}$/i.test(m)) throw new Error('Bad MAC address');
+  return Buffer.concat([Buffer.alloc(6, 0xff), ...Array(16).fill(Buffer.from(m, 'hex'))]);
+}
+
 function hostsFromFlat(flat) {
   const hosts = new Map();
   for (const [k, v] of Object.entries(flat)) {
@@ -160,7 +177,7 @@ function hostsFromFlat(flat) {
       .filter((a) => a.name && /^\d+$/.test(a.id || '') && a.hidden !== 'true')
       .map((a) => ({ id: a.id, name: a.name }));
     const addresses = [h.manualaddress, h.localaddress, h.remoteaddress, h.ipv6address].filter((a) => a && a !== '');
-    list.push({ uuid: h.uuid, name: h.hostname || h.uuid, apps, online: null, addresses, srvcert: h.srvcert || '' });
+    list.push({ uuid: h.uuid, name: h.hostname || h.uuid, apps, online: null, addresses, srvcert: h.srvcert || '', mac: macOf(h.mac) });
   }
   return list;
 }
@@ -328,6 +345,7 @@ class Moonlight {
         uuid: h.uuid,
         name: h.name,
         online: h.online,
+        mac: h.mac,
         apps: h.apps.map((a) => ({ ...a, boxart: !!this.boxartPath(h.uuid, a.id) || (!!this.clientCert && !!h.srvcert) })),
       })),
     };
@@ -344,6 +362,55 @@ class Moonlight {
     return { host: host.name, app: app.name };
   }
 
+  host(uuid) {
+    return this.hosts.find((h) => h.uuid === uuid) || null;
+  }
+
+  async wake(uuid, mac) {
+    const host = this.host(uuid);
+    const packet = wakePacket(mac || (host && host.mac));
+    const dgram = require('dgram');
+    const sock = dgram.createSocket('udp4');
+    await new Promise((resolve) => sock.bind(() => { sock.setBroadcast(true); resolve(); }));
+    const targets = ['255.255.255.255', ...os.networkInterfaces ? Object.values(os.networkInterfaces()).flat()
+      .filter((i) => i && i.family === 'IPv4' && !i.internal && i.netmask)
+      .map((i) => i.address.split('.').map((o, k) => (Number(o) | (~Number(i.netmask.split('.')[k]) & 255))).join('.')) : []];
+    for (const a of (host ? host.addresses : [])) if (/^\d+\.\d+\.\d+\.\d+$/.test(a.split(':')[0])) targets.push(a.split(':')[0]);
+    for (const t of [...new Set(targets)]) {
+      for (const port of [9, 7]) await new Promise((resolve) => sock.send(packet, port, t, () => resolve()));
+    }
+    sock.close();
+    return true;
+  }
+
+  // True when the host answers on GameStream's port (47989).
+  reachable(uuid, timeout = 1500) {
+    const host = this.host(uuid);
+    if (!host || !host.addresses.length) return Promise.resolve(false);
+    const net = require('net');
+    return Promise.all(host.addresses.map((a) => new Promise((resolve) => {
+      const hostname = a.replace(/^\[|\](:\d+)?$/g, '').replace(/:\d+$/, '');
+      const s = net.connect({ host: hostname, port: 47989 });
+      const done = (ok) => { s.destroy(); resolve(ok); };
+      s.setTimeout(timeout, () => done(false));
+      s.once('connect', () => done(true));
+      s.once('error', () => done(false));
+    }))).then((r) => r.some(Boolean));
+  }
+
+  // Pairs a new host: Moonlight shows nothing; the user types `pin` into
+  // Sunshine's web UI. Resolves true when Moonlight reports success.
+  pair(address, pin) {
+    if (!this.bin) return Promise.reject(new Error('Moonlight is not installed'));
+    if (!/^[\w.:\[\]-]{1,100}$/.test(address) || !/^\d{4}$/.test(pin)) return Promise.reject(new Error('Bad address or PIN'));
+    return new Promise((resolve) => {
+      const child = spawn(this.bin[0], [...this.bin[1], 'pair', address, '--pin', pin], { stdio: 'ignore', windowsHide: true });
+      const t = setTimeout(() => { child.kill(); resolve(false); }, 180e3);
+      child.on('error', () => { clearTimeout(t); resolve(false); });
+      child.on('exit', (code) => { clearTimeout(t); resolve(code === 0); });
+    });
+  }
+
   openApp() {
     if (!this.bin) throw new Error('Moonlight is not installed');
     const child = spawn(this.bin[0], this.bin[1], { detached: true, stdio: 'ignore' });
@@ -352,4 +419,4 @@ class Moonlight {
   }
 }
 
-module.exports = { Moonlight, parseListCsv, hostsFromFlat, readIniHosts, regValue, readRegistryHosts };
+module.exports = { Moonlight, parseListCsv, hostsFromFlat, readIniHosts, regValue, readRegistryHosts, macOf, wakePacket };

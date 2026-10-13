@@ -66,4 +66,4 @@ async function openSteam(shell, root, action, id) {
   return url;
 }
 
-module.exports = { openSteam, steamUrl, ACTIONS };
+module.exports = { openSteam, steamUrl, ACTIONS, linuxCommand };

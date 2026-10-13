@@ -19,8 +19,9 @@ class Secrets {
 
   set(patch) {
     for (const [k, v] of Object.entries(patch)) {
-      if (!['steamApiKey', 'jellyfinUrl', 'jellyfinKey'].includes(k)) continue;
+      if (!['steamApiKey', 'jellyfinUrl', 'jellyfinKey', 'parentPin'].includes(k)) continue;
       if (typeof v !== 'string' || v.length > 300) continue;
+      if (k === 'parentPin' && v && !/^\d{4,8}$/.test(v)) continue;
       if (v) this.values[k] = v.trim(); else delete this.values[k];
     }
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
@@ -30,7 +31,7 @@ class Secrets {
 
   // What the renderer may know: whether each thing is set, never the value.
   status() {
-    return { steam: !!this.get('steamApiKey'), jellyfin: !!(this.get('jellyfinUrl') && this.get('jellyfinKey')), jellyfinUrl: this.get('jellyfinUrl') };
+    return { steam: !!this.get('steamApiKey'), jellyfin: !!(this.get('jellyfinUrl') && this.get('jellyfinKey')), jellyfinUrl: this.get('jellyfinUrl'), pin: !!this.get('parentPin') };
   }
 }
 

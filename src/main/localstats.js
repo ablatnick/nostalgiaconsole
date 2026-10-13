@@ -44,7 +44,8 @@ class LocalStats {
         for (const [bid, b] of Object.entries((st && st.bits) || {})) {
           const d = b.display || {};
           const text = (o) => (o && (o.english || Object.values(o).find((v) => typeof v === 'string'))) || '';
-          list.push({ key: `${sid}:${b.bit ?? bid}`, api: b.name || '', name: text(d.name) || b.name || 'achievement', desc: text(d.desc) });
+          const hash = (v) => (typeof v === 'string' && /^[0-9a-f]{40}\.jpg$/.test(v) ? v.slice(0, 40) : '');
+          list.push({ key: `${sid}:${b.bit ?? bid}`, api: b.name || '', name: text(d.name) || b.name || 'achievement', desc: text(d.desc), icon: hash(d.icon), iconGray: hash(d.icon_gray), hidden: String(d.hidden) === '1' });
         }
       }
     } catch { list = []; }
@@ -78,6 +79,19 @@ class LocalStats {
     const got = this.unlocked(root, account, appid);
     const unlocked = list.filter((a) => got.has(a.key)).map((a) => ({ ...a, at: got.get(a.key) }));
     return { total: list.length, unlocked };
+  }
+
+  // Every achievement of a game, unlocked ones first (newest first), for the
+  // achievements screen. Hidden locked ones keep their secret.
+  details(root, account, appid) {
+    const list = this.schema(root, appid);
+    if (!list || !list.length) return null;
+    const got = this.unlocked(root, account, appid);
+    return list.map((a) => {
+      const at = got.has(a.key) ? got.get(a.key) : null;
+      const secret = at === null && a.hidden;
+      return { name: secret ? 'hidden achievement' : a.name, desc: secret ? 'keep playing to find out' : a.desc, icon: at === null ? a.iconGray || a.icon : a.icon, unlocked: at !== null, at: at || 0 };
+    }).sort((a, b) => (Number(b.unlocked) - Number(a.unlocked)) || (b.at - a.at));
   }
 
   // Same shape as SteamWeb.summary().

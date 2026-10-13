@@ -58,7 +58,7 @@ test('secrets: only known keys are stored, and status never reveals them', () =>
   s.set({ steamApiKey: ' ABC123 ', evil: 'x', jellyfinUrl: 'http://jf:8096' });
   assert.strictEqual(s.get('steamApiKey'), 'ABC123');
   assert.strictEqual(s.get('evil'), '');
-  assert.deepStrictEqual(s.status(), { steam: true, jellyfin: false, jellyfinUrl: 'http://jf:8096' });
+  assert.deepStrictEqual(s.status(), { steam: true, jellyfin: false, jellyfinUrl: 'http://jf:8096', pin: false });
   if (process.platform !== 'win32') assert.strictEqual(fs.statSync(path.join(dir, 'secrets.json')).mode & 0o777, 0o600);
   assert.strictEqual(new Secrets(dir).get('steamApiKey'), 'ABC123');
 });

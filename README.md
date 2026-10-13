@@ -81,6 +81,20 @@ like; they use no console makers' logos, fonts, sounds or artwork.
   alerts** when someone comes online or starts a game, Steam **download
   progress**, and a **controls** screen that lists every button and lets
   you remap your controller.
+- **Retro games**: your RetroArch playlists become a retro pivot, with box
+  art, play time from RetroArch's logs, and one press to start the game in
+  the right core.
+- **Steam collections** (Favorites and your own) as folders, and games
+  Steam hides stay hidden. Hide anything else from its details screen.
+- **Achievements** for each game: unlocked and locked, with icons and dates.
+- **Wake-on-LAN**: a sleeping PC is woken before a Moonlight stream starts,
+  and you can pair a new PC from the streaming pivot.
+- **Kid profiles** that only see the games a parent allows (behind a PIN),
+  **power** options in the guide (sleep, restart, shut down, restart
+  Steam), **background music** from your own files, **one-press updates**,
+  **reduce motion**, **high contrast** and a **lite mode** for the Steam Deck.
+- Games you played on this account but haven't installed, without an API
+  key, and play time for non-Steam games.
 - The **guide**, console-style notifications, synthesized sounds (or your
   own sound pack), a boot animation and four themes.
 - Controller first; keyboard and mouse work too. Gamepad input is ignored
@@ -127,7 +141,8 @@ head, or any picture in the `gamerpics` folder in the user data folder.
 | ![Guide](docs/screenshots/guide.png) | ![Game details](docs/screenshots/details.png) |
 | ![Game library](docs/screenshots/library.png) | ![Avatar editor](docs/screenshots/avatar-editor.png) |
 | ![Settings pivot](docs/screenshots/settings.png) | ![Midnight theme](docs/screenshots/midnight.png) |
-| ![Boot screen](docs/screenshots/boot.png) | |
+| ![Retro pivot (RetroArch)](docs/screenshots/retro.png) | ![Achievements](docs/screenshots/achievements.png) |
+| ![Steam collections](docs/screenshots/collections.png) | ![Boot screen](docs/screenshots/boot.png) |
 
 Screenshots use the test library from `test/make-fixture.js` and
 `test/web-fixture.json`; `test/readme-shots.sh` regenerates them all.

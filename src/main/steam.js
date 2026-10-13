@@ -140,6 +140,34 @@ function localStats(root, user) {
   return stats;
 }
 
+// Steam's collections (Favorites and your own) live in the client's cloud
+// storage file as JSON strings. Dynamic collections (filters) are skipped:
+// only the games added by hand are known. "hidden" is Steam's hidden list.
+function readCollections(root, user) {
+  const out = { collections: [], hidden: [] };
+  if (!user) return out;
+  let rows;
+  try {
+    rows = JSON.parse(fs.readFileSync(path.join(root, 'userdata', user.accountId, 'config/cloudstorage/cloud-storage-namespace-1.json'), 'utf8'));
+  } catch { return out; }
+  if (!Array.isArray(rows)) return out;
+  for (const row of rows) {
+    const [key, v] = Array.isArray(row) ? row : [];
+    if (typeof key !== 'string' || !key.startsWith('user-collections.') || !v || v.is_deleted || typeof v.value !== 'string') continue;
+    let c;
+    try { c = JSON.parse(v.value); } catch { continue; }
+    if (!c || typeof c.id !== 'string' || c.filterSpec) continue;
+    const removed = new Set((c.removed || []).map(String));
+    const appids = (c.added || []).map(String).filter((id) => /^\d+$/.test(id) && !removed.has(id));
+    if (c.id === 'hidden') { out.hidden = appids; continue; }
+    if (!appids.length) continue;
+    out.collections.push({ id: c.id, name: String(c.name || c.id).slice(0, 60), appids });
+  }
+  // Favorites first, then by name.
+  out.collections.sort((a, b) => (Number(b.id === 'favorite') - Number(a.id === 'favorite')) || a.name.localeCompare(b.name));
+  return out;
+}
+
 function shortcutGameId(appid32) {
   return ((BigInt(appid32 >>> 0) << 32n) | 0x02000000n).toString();
 }
@@ -234,7 +262,15 @@ function loadLibrary(rootOverride) {
     };
     (isTool(g.appid, g.name) ? tools : games).push(entry);
   }
-  return { root, user, libraries: libs, games, tools, shortcuts: readShortcuts(root, user) };
+  // Games played on this account that aren't installed here (no API key
+  // needed; names are looked up separately).
+  const have = new Set(games.concat(tools).map((g) => g.appid));
+  const played = Object.entries(stats)
+    .filter(([id, st]) => /^\d+$/.test(id) && id.length < 9 && !have.has(id) && (st.playtime > 0 || st.lastPlayed > 0) && !TOOL_APPIDS.has(id))
+    .map(([appid, st]) => ({ appid, lastPlayed: st.lastPlayed, playtime: st.playtime }))
+    .sort((a, b) => b.lastPlayed - a.lastPlayed)
+    .slice(0, 200);
+  return { root, user, libraries: libs, games, tools, shortcuts: readShortcuts(root, user), played, ...readCollections(root, user) };
 }
 
-module.exports = { loadLibrary, findSteamRoot, shortcutGameId, isTool };
+module.exports = { loadLibrary, findSteamRoot, shortcutGameId, isTool, readCollections };
