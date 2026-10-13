@@ -9,6 +9,7 @@ const { openSteam } = require('./launch');
 const { Settings } = require('./settings');
 const { Moonlight } = require('./moonlight');
 const { SteamWeb } = require('./steamweb');
+const { LocalStats } = require('./localstats');
 const { Secrets } = require('./secrets');
 const { Jellyfin } = require('./jellyfin');
 const { screen } = require('electron');
@@ -48,6 +49,7 @@ let library = null;
 const art = new ArtResolver(net);
 let secrets = null;
 let steamWeb = null;
+let localStats = null;
 let jellyfin = null;
 const moonlight = new Moonlight();
 const watchers = [];
@@ -291,16 +293,41 @@ function webFixture() {
   return fixture;
 }
 
+// Games Steam keeps an achievement list for on this machine.
+function localStatGames() {
+  if (!library || !library.root) return [];
+  try {
+    return fs.readdirSync(path.join(library.root, 'appcache', 'stats')).map((f) => (f.match(/^UserGameStatsSchema_(\d+)\.bin$/) || [])[1]).filter(Boolean);
+  } catch { return []; }
+}
+
+// Local achievements, merged with the Web API's when there is a key (the
+// API also knows games never played on this machine).
+function achievementSummary() {
+  const user = library && library.user;
+  const local = user ? localStats.summary(library.root, user.accountId, localStatGames()) : { perGame: {} };
+  const api = secrets.status().steam ? steamWeb.summary() : { perGame: {} };
+  const perGame = { ...local.perGame };
+  for (const [id, g] of Object.entries(api.perGame)) if (!perGame[id] || g.unlocked > perGame[id].unlocked) perGame[id] = g;
+  let unlocked = 0;
+  let total = 0;
+  for (const g of Object.values(perGame)) { unlocked += g.unlocked; total += g.total; }
+  return { gamerscore: unlocked * 10, unlocked, total, perGame };
+}
+
 function webData() {
   if (webFixture()) return webFixture().web;
   const owned = steamWeb.cache.owned ? steamWeb.cache.owned.games : [];
   const installed = new Set((library.games || []).filter((g) => g.installed).map((g) => g.appid));
-  const people = steamWeb.cache.friends ? steamWeb.cache.friends.people : [];
+  const user = library && library.user;
+  const apiPeople = secrets.status().steam && steamWeb.cache.friends ? steamWeb.cache.friends.people : null;
+  const people = apiPeople || (user ? localStats.friends(library.root, user.accountId) : []);
   for (const p of people) if (/^https:\/\/avatars\.(steamstatic|akamai\.steamstatic|cloudflare\.steamstatic)\.com\//.test(p.avatar)) friendPics.set(p.steamid, p.avatar);
   return {
-    enabled: secrets.status().steam,
-    notInstalled: owned.filter((g) => !installed.has(g.appid) && !steam.isTool(g.appid, g.name)),
-    achievements: steamWeb.summary(),
+    enabled: true,
+    keyed: secrets.status().steam,
+    notInstalled: secrets.status().steam ? owned.filter((g) => !installed.has(g.appid) && !steam.isTool(g.appid, g.name)) : [],
+    achievements: achievementSummary(),
     friends: people.map((p) => ({ ...p, avatar: friendPics.has(p.steamid) ? `nostalgia://friend/${p.steamid}` : '' })),
   };
 }
@@ -309,7 +336,16 @@ let webBusy = false;
 async function refreshWeb(force = false) {
   const key = secrets.get('steamApiKey');
   const user = library && library.user;
-  if (!key || !user || webBusy || opts.capture) return webData();
+  if (!user || webBusy || opts.capture) return webData();
+  if (!key) {
+    // No key: friends' online status from their public profiles.
+    webBusy = true;
+    try { await localStats.refreshStatus(localStats.friends(library.root, user.accountId)); } catch { /* offline */ }
+    webBusy = false;
+    const data = webData();
+    if (win && !win.isDestroyed()) win.webContents.send('web', data);
+    return data;
+  }
   webBusy = true;
   try {
     const stale = (x, ms) => force || !x || Date.now() - x.at > ms;
@@ -365,7 +401,29 @@ function watchAchievements(appid) {
   clearInterval(achTimer);
   const key = secrets.get('steamApiKey');
   const user = library && library.user;
-  if (!key || !user || !/^\d+$/.test(String(appid))) return;
+  if (!user || !/^\d+$/.test(String(appid)) || String(appid).length > 10) return;
+  if (!key) {
+    // Watch Steam's local stats file for this game; it is rewritten when
+    // an achievement unlocks.
+    const id = String(appid);
+    let seen = new Set(localStats.unlocked(library.root, user.accountId, id).keys());
+    let at = localStats.statsFileTime(library.root, user.accountId, id);
+    let started = false;
+    achTimer = setInterval(async () => {
+      const running = await runningAppId();
+      if (running) started = true;
+      else if (started) { clearInterval(achTimer); return; }
+      const t = localStats.statsFileTime(library.root, user.accountId, id);
+      if (t === at) return;
+      at = t;
+      const g = localStats.game(library.root, user.accountId, id);
+      if (!g) return;
+      for (const a of g.unlocked) if (!seen.has(a.key)) sendNotice('achievement unlocked', `${a.name} · 10G`);
+      seen = new Set(g.unlocked.map((a) => a.key));
+      if (win && !win.isDestroyed()) win.webContents.send('web', webData());
+    }, 10e3);
+    return;
+  }
   steamWeb.newUnlocks(key, user.steamId64, String(appid)).catch(() => {});
   achTimer = setInterval(async () => {
     const running = await runningAppId();
@@ -572,13 +630,14 @@ app.whenReady().then(() => {
   settings = new Settings(app.getPath('userData'));
   secrets = new Secrets(app.getPath('userData'));
   steamWeb = new SteamWeb(net, app.getPath('userData'));
+  localStats = new LocalStats(net);
   jellyfin = new Jellyfin(net, secrets);
   protocol.handle('nostalgia', serve);
   refresh(false);
   createWindow();
   fetchAvatar();
   if (!opts.capture) {
-    setTimeout(() => refreshWeb(), 4000);
+    setTimeout(() => refreshWeb(), 2500);
     setInterval(() => refreshWeb(), 5 * 60e3);
   }
 });

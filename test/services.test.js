@@ -94,3 +94,35 @@ test('moonlight: client certificate and pinned server certificate are decoded', 
   assert.ok(flat._key.includes('\nBBB\n'));
   assert.ok(flat['1\\srvcert'].includes('\nCCC\n'));
 });
+
+test('local stats: achievements and friends from Steam files, no key', () => {
+  const { LocalStats } = require('../src/main/localstats');
+  const root = tmp();
+  const kv = (obj) => {
+    const parts = [];
+    for (const [k, v] of Object.entries(obj)) {
+      if (typeof v === 'object') parts.push(Buffer.from([0]), Buffer.from(k + '\0'), kv(v), Buffer.from([8]));
+      else if (typeof v === 'number') { const b = Buffer.alloc(4); b.writeInt32LE(v); parts.push(Buffer.from([2]), Buffer.from(k + '\0'), b); }
+      else parts.push(Buffer.from([1]), Buffer.from(k + '\0'), Buffer.from(v + '\0'));
+    }
+    return Buffer.concat(parts);
+  };
+  fs.mkdirSync(path.join(root, 'appcache/stats'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'appcache/stats/UserGameStatsSchema_77.bin'), Buffer.concat([kv({ 77: { stats: { 1: { type: '4', bits: {
+    0: { name: 'A', bit: 0, display: { name: { english: 'First' } } },
+    1: { name: 'B', bit: 1, display: { name: { english: 'Second' } } },
+    5: { name: 'C', bit: 5, display: { name: { english: 'Sixth' } } },
+  } } } } }), Buffer.from([8])]));
+  fs.writeFileSync(path.join(root, 'appcache/stats/UserGameStats_42_77.bin'), Buffer.concat([kv({ cache: { 1: { data: 0b100001, achievementtimes: { 0: 100, 5: 200 } } } }), Buffer.from([8])]));
+  fs.mkdirSync(path.join(root, 'userdata/42/config'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'userdata/42/config/localconfig.vdf'), '"UserLocalConfigStore"\n{\n "friends"\n {\n  "42" { "name" "me" }\n  "1000" { "name" "Pal" "avatar" "fb8821025c4500cce9371d016dfc66b50ada5ae5" }\n }\n}\n');
+  const ls = new LocalStats(null);
+  const g = ls.game(root, '42', '77');
+  assert.deepStrictEqual(g.unlocked.map((a) => a.name), ['First', 'Sixth']);
+  assert.strictEqual(g.total, 3);
+  assert.strictEqual(ls.summary(root, '42', ['77']).gamerscore, 20);
+  const fr = ls.friends(root, '42');
+  assert.strictEqual(fr.length, 1);
+  assert.strictEqual(fr[0].steamid, String(1000n + 76561197960265728n));
+  assert.ok(fr[0].avatar.endsWith('fb8821025c4500cce9371d016dfc66b50ada5ae5_full.jpg'));
+});

@@ -41,10 +41,11 @@ Screenshots use the test library from `test/make-fixture.js` (rendered with
   firefighter, scientist, astronaut, pilot, trooper, robot, fox/cat/bear and
   dino hoodies, zombie, mummy, robe, wizard and alien, each with a costume
   color.
-- **Gamerscore and achievements** (with a Steam Web API key): a G total on
-  your gamercard, achievements per game, and "achievement unlocked"
-  pop-ups that show over your game.
-- **Social**: your Steam friends, who's online and what they're playing.
+- **Gamerscore and achievements**, read from Steam's own files (no key
+  needed): a G total on your gamercard, achievements per game, and
+  "achievement unlocked" pop-ups that show over your game.
+- **Social**: your Steam friends from Steam's cache, with online status
+  from their public profiles.
 - **Video**: your Jellyfin server's continue watching, next up, movies and
   shows, with a built-in player that syncs your progress, and "open in
   jellyfin" for Watch Party.
@@ -128,11 +129,11 @@ Both are optional and set up in **settings** with the on-screen keyboard (a
 physical keyboard and paste work too). Keys are stored in `secrets.json` in
 the user data folder, readable only by you, and never shown in the UI.
 
-- **steam web api**: create a key at
-  <https://steamcommunity.com/dev/apikey>. It unlocks gamerscore,
-  achievements, the social pivot and games you own but haven't installed.
-  Your Steam profile's game details and friends list need to be visible to
-  the API (Steam privacy settings).
+- **steam web api** (optional): gamerscore, achievements and friends work
+  without it, from Steam's local files. A key from
+  <https://steamcommunity.com/dev/apikey> adds games you own but haven't
+  installed, live status for friends with private profiles, and
+  achievements from games played on other PCs.
 - **jellyfin**: enter the server address (for example
   `http://192.168.1.10:8096`) and an API key from Jellyfin's
   **Dashboard > API Keys**. Video, images and progress go through

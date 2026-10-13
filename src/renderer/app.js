@@ -256,9 +256,9 @@ function settingTiles() {
         rebuild();
         toast(state.packCount ? `loaded ${state.packCount} sounds from ${dir}` : `put move.wav, select.wav, back.wav… in ${dir}`);
       } },
-    { key: 'set:steamweb', type: 'icon', icon: 'friends', label: 'steam web api', value: state.keys && state.keys.steam ? 'connected' : 'add your key', title: 'steam web api',
+    { key: 'set:steamweb', type: 'icon', icon: 'friends', label: 'steam web api', value: state.keys && state.keys.steam ? 'connected' : 'optional', title: 'steam web api',
       activate: async () => {
-        const v = await openKeyboard({ title: 'steam web api key', secret: true, hint: 'get one at steamcommunity.com/dev/apikey — unlocks gamerscore, achievements, friends and games you own' });
+        const v = await openKeyboard({ title: 'steam web api key (optional)', secret: true, hint: 'gamerscore and friends already work without one; a key from steamcommunity.com/dev/apikey adds games you own but haven\'t installed, live friend status and achievements from other PCs' });
         if (v === null) return;
         state.keys = await api.setKeys({ steamApiKey: v });
         toast(v ? 'checking your steam account…' : 'steam web api key removed');
