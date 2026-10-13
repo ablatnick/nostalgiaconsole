@@ -4,6 +4,21 @@ A full-screen dashboard in the style of the 2008 "New Xbox Experience" for
 your Steam library. It runs on Linux, Windows and the Steam Deck, and it
 also lists games you can stream from other PCs with Moonlight.
 
+
+## Screenshots
+
+![Home pivot](docs/screenshots/home.png)
+
+| | |
+| --- | --- |
+| ![Games pivot](docs/screenshots/games.png) | ![Steam pivot with your avatar](docs/screenshots/steam.png) |
+| ![Guide](docs/screenshots/guide.png) | ![Game details](docs/screenshots/details.png) |
+| ![Game library](docs/screenshots/library.png) | ![Avatar editor](docs/screenshots/avatar-editor.png) |
+| ![Midnight theme](docs/screenshots/midnight.png) | ![Boot screen](docs/screenshots/boot.png) |
+
+Screenshots use the test library from `test/make-fixture.js` (rendered with
+`test/shot.sh`).
+
 - **Channels** you scroll up and down: spotlight, my games, apps & emulators,
   streaming, my steam and settings. Each channel has a row of 3D tiles you
   scroll left and right.

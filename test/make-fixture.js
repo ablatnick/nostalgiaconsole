@@ -97,7 +97,7 @@ for (const [appid, name, lib] of TOOLS) {
 }
 
 write(path.join(ROOT, 'config/loginusers.vdf'), kv({
-  users: { [ID64]: { AccountName: 'fixture', PersonaName: 'Master Chief', MostRecent: 1, Timestamp: NOW } },
+  users: { [ID64]: { AccountName: 'fixture', PersonaName: 'Player One', MostRecent: 1, Timestamp: NOW } },
 }));
 
 write(path.join(ROOT, 'userdata', ACCOUNT, 'config/localconfig.vdf'), kv({

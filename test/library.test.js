@@ -33,7 +33,7 @@ test('binary VDF: strings, ints, nested maps', () => {
 
 test('loads both library folders, user, playtime and shortcuts', () => {
   const lib = steam.loadLibrary(ROOT);
-  assert.strictEqual(lib.user.name, 'Master Chief');
+  assert.strictEqual(lib.user.name, 'Player One');
   assert.strictEqual(lib.user.accountId, '376923952');
   assert.strictEqual(lib.games.length, 16);
   assert.strictEqual(lib.tools.length, 3);
