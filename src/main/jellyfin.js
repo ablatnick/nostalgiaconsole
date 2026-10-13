@@ -21,8 +21,11 @@ class Jellyfin {
     return !!(this.base() && this.secrets.get('jellyfinKey'));
   }
 
+  // Jellyfin 10.11+ only accepts the standard Authorization header; the old
+  // X-Emby-Authorization one is kept for older servers.
   headers(extra = {}) {
-    return { 'X-Emby-Authorization': `${CLIENT}, Token="${this.secrets.get('jellyfinKey')}"`, ...extra };
+    const value = `${CLIENT}, Token="${this.secrets.get('jellyfinKey')}"`;
+    return { Authorization: value, 'X-Emby-Authorization': value, ...extra };
   }
 
   async api(pathAndQuery, opts = {}) {

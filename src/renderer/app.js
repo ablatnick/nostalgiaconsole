@@ -1297,7 +1297,10 @@ async function playVideo(v) {
   const hls = new Hls({ enableWorker: false, startPosition: v.position ? v.position / 1e7 : -1 });
   hls.loadSource(src);
   hls.attachMedia(video);
-  hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) { toast('could not play this video'); stop(); } });
+  hls.on(Hls.Events.ERROR, (_e, d) => {
+    console.warn('video error', d.type, d.details, d.response && d.response.code, d.reason || '');
+    if (d.fatal) { toast('could not play this video'); stop(); }
+  });
   const ticks = () => Math.round(video.currentTime * 1e7);
   const report = (kind) => api.jfReport(kind, { ItemId: v.id, MediaSourceId: v.id, PlaySessionId: sid, PositionTicks: ticks(), IsPaused: video.paused, CanSeek: true, PlayMethod: 'Transcode' });
   video.addEventListener('playing', () => report('start'), { once: true });

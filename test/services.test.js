@@ -71,7 +71,7 @@ test('jellyfin: items map to tiles and the proxy only allows images and video', 
   assert.strictEqual(item.backdropItem, 's1');
   const seen = [];
   const secrets = { get: (k) => ({ jellyfinUrl: 'http://jf:8096/', jellyfinKey: 'K' }[k] || '') };
-  const jf = new Jellyfin({ fetch: async (url, opts) => { seen.push([url, opts.headers['X-Emby-Authorization']]); return new Response('ok'); } }, secrets);
+  const jf = new Jellyfin({ fetch: async (url, opts) => { seen.push([url, opts.headers.Authorization]); return new Response('ok'); } }, secrets);
   assert.strictEqual((await jf.proxy('/Users/abc')).status, 403);
   assert.strictEqual((await jf.proxy('/Items/abc/Images/Primary?maxHeight=600')).status, 200);
   assert.strictEqual((await jf.proxy('/Videos/abc/master.m3u8?x=1')).status, 200);

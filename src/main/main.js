@@ -55,7 +55,7 @@ const moonlight = new Moonlight();
 const watchers = [];
 
 const MIME = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.json': 'application/json',
 };
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' nostalgia: data:; media-src 'self' nostalgia: blob:; font-src 'self'; connect-src 'self' nostalgia:";
@@ -269,6 +269,8 @@ function createWindow() {
 
 async function runCapture() {
   const wc = win.webContents;
+  // Screenshot runs print the page's errors, so failures aren't silent.
+  wc.on('console-message', (e, lvl, msg) => { const level = e.level ?? lvl; const text = e.message ?? msg; if (level === 'error' || level === 'warning' || level >= 2) process.stderr.write(`[page ${level}] ${text}\n`); });
   await new Promise((r) => wc.once('did-finish-load', r));
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(opts.delay);
