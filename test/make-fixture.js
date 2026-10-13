@@ -7,8 +7,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.join(__dirname, 'fixture', 'Steam');
-const LIB2 = path.join(__dirname, 'fixture', 'Library2');
+// FIXTURE_DIR moves it (the README screenshots use a neutral path).
+const BASE = process.env.FIXTURE_DIR || path.join(__dirname, 'fixture');
+const ROOT = path.join(BASE, 'Steam');
+const LIB2 = path.join(BASE, 'Library2');
 const ACCOUNT = '376923952';
 const ID64 = (BigInt(ACCOUNT) + 76561197960265728n).toString();
 const NOW = Math.floor(Date.now() / 1000);
@@ -69,7 +71,7 @@ function write(p, data) {
   fs.writeFileSync(p, data);
 }
 
-fs.rmSync(path.join(__dirname, 'fixture'), { recursive: true, force: true });
+fs.rmSync(BASE, { recursive: true, force: true });
 
 write(path.join(ROOT, 'steamapps/libraryfolders.vdf'), kv({
   libraryfolders: {

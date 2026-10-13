@@ -31,13 +31,15 @@ shot() {
   printf '{"theme":"%s","intro":true,"moonlight":false,%s%s}\n' "$theme" "${SETTINGS:-}" "$PROFILES" > "$ud/settings.json"
   echo "$name"
   # Extra args go first: the app reads the first copy of each flag.
-  timeout 90 npx electron . "$@" ${ELECTRON_FLAGS:-} --no-sandbox --steam-root=test/fixture/Steam --user-data="$ud" \
+  timeout 90 npx electron . "$@" ${ELECTRON_FLAGS:-} --no-sandbox --steam-root=/tmp/nostalgiaconsole-demo/Steam --user-data="$ud" \
     --web-fixture=test/web-fixture.json --capture="$out/$name.png" --keys="$keys" --size=1280x720 --delay=3500 2>&1 | grep -iv 'gtk\|dbus\|gles\|viz' | tee -a "$log"
   [ "$out/$name.png" -nt "$start" ] || echo "[missing] $name.png" | tee -a "$log"
 }
 
 only="$*"
-[ -d test/fixture/Steam ] || node test/make-fixture.js
+# Game details show the install path, so build the test library at a
+# neutral path rather than inside the checkout.
+FIXTURE_DIR=/tmp/nostalgiaconsole-demo node test/make-fixture.js
 shot home ''
 shot games 'E'
 shot video 'E,E,E'
