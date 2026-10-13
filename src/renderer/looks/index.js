@@ -6,5 +6,7 @@
 // A, X, Y, menu and the guide are handled for every style by app.js.
 import xmb from './xmb.js';
 import wii from './wii.js';
+import nxe from './nxe.js';
+import blades from './blades.js';
 
-export const LOOK_MODULES = { xmb, wii };
+export const LOOK_MODULES = { nxe, blades, xmb, wii };

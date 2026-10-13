@@ -72,6 +72,8 @@ shot avatar-editor 'G,Down,Down,Return,wait1500'
 shot signin 'G,Down,Down,Down,Down,Return,Right,wait2500'
 shot midnight '' midnight
 shot boot '' classic --intro --delay=900
+lookshot look-nxe nxe ''
+lookshot look-blades blades ''
 lookshot look-xmb xmb ''
 lookshot look-wii wii ''
 lookshot look-wii-preview wii 'Return'
