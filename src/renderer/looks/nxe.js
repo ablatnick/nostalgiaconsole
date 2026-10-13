@@ -71,7 +71,7 @@ export default function createNxe(ctx, root) {
   function layout() {
     const W = innerWidth;
     const H = innerHeight;
-    const ch = H * 0.36;
+    const ch = H * 0.36 * ctx.scale();
     const cw = ch * 1.33;
     const x0 = W * 0.36;
     const y0 = H * 0.24;

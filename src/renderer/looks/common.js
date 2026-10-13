@@ -65,3 +65,11 @@ export function shade(hex, f) {
   const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(f <= 1 ? v * f : v + (255 - v) * (f - 1)));
   return `rgb(${ch.join(',')})`;
 }
+
+// True for colors dark enough to need light text on top.
+export function isDark(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  return 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) < 140;
+}

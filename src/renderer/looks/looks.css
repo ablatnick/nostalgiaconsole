@@ -49,7 +49,8 @@ body[data-look="xmb"] #hints { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0,
 body[data-look="wii"] { background: #eceef0; }
 body[data-look="wii"] #top { display: none; }
 body[data-look="wii"] #hints { color: #8a9298; text-shadow: none; bottom: auto; top: 1.4vh; left: auto; right: 2.4vw; font-size: clamp(11px, 1.5vh, 15px); gap: 1.4vw; opacity: .85; }
-.wii { position: fixed; inset: 0; overflow: hidden; color: #50575c; font-weight: 400;
+.wii { --wii-a: var(--look-accent, var(--wii-a)); --wii-b: var(--look-accent-2, var(--wii-b)); --wii-c: color-mix(in srgb, var(--wii-a) 55%, #fff);
+  position: fixed; inset: 0; overflow: hidden; color: #50575c; font-weight: 400;
   background: repeating-linear-gradient(180deg, #f6f7f8 0 2px, #eceef0 2px 4px); }
 .wii-pages { position: absolute; transition: transform .5s cubic-bezier(.3, .8, .3, 1); }
 .wii-pages.intro .wii-page { animation: wii-in .55s cubic-bezier(.2, .9, .3, 1.05) both; }
@@ -63,31 +64,31 @@ body[data-look="wii"] #hints { color: #8a9298; text-shadow: none; bottom: auto; 
 .wii-ch .art .fg { width: 100%; height: 100%; object-fit: cover; display: block; }
 .wii-ch .art.noart { display: grid; place-items: center; text-align: center; padding: 8px; font-weight: 600; background: linear-gradient(#fff, #e9edf0); }
 .wii-ch .noart-name, .wii-pv-frame .noart-name { color: #5c656c; text-shadow: none; }
-.wii-ch .art-icon { display: grid; place-items: center; align-content: center; gap: 4%; color: #2fa9e0; background: linear-gradient(#fff 55%, #e8eef2); }
+.wii-ch .art-icon { display: grid; place-items: center; align-content: center; gap: 4%; color: var(--wii-b); background: linear-gradient(#fff 55%, #e8eef2); }
 .wii-ch .art-icon .ico { width: calc(var(--ch) * .34); height: calc(var(--ch) * .34); stroke-width: 1.5; }
 .wii-ch .art-icon.folder b { font-size: clamp(12px, 2vh, 20px); color: #5c656c; font-weight: 600; text-align: center; padding: 0 8px; }
 .wii-face { position: relative; width: 44%; aspect-ratio: 1; border-radius: 18%; overflow: hidden; display: grid; place-items: center; background: #dfe5ea; box-shadow: 0 0 0 2px #fff, 0 1px 4px rgba(0, 0, 0, .15); }
 .wii-face img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .wii-face .ico { width: 60%; height: 60%; color: #9aa3a9; }
 /* Focus: the channel keeps its size and gets a pulsing light-blue outline. */
-.wii-ch.on { box-shadow: 0 0 0 2px #fff, 0 0 0 6px #4ac6f2, 0 0 14px 6px rgba(74, 198, 242, .55); animation: wii-glow 1.3s ease-in-out infinite; z-index: 2; }
-@keyframes wii-glow { 50% { box-shadow: 0 0 0 2px #fff, 0 0 0 6px #8fdcf8, 0 0 22px 9px rgba(74, 198, 242, .35); } }
+.wii-ch.on { box-shadow: 0 0 0 2px #fff, 0 0 0 6px var(--wii-a), 0 0 14px 6px color-mix(in srgb, var(--wii-a) 55%, transparent); animation: wii-glow 1.3s ease-in-out infinite; z-index: 2; }
+@keyframes wii-glow { 50% { box-shadow: 0 0 0 2px #fff, 0 0 0 6px var(--wii-c), 0 0 22px 9px color-mix(in srgb, var(--wii-a) 35%, transparent); } }
 .wii-hand { position: absolute; left: 0; top: 0; width: 7.6vh; z-index: 30; pointer-events: none; transition: transform .22s cubic-bezier(.3, .7, .3, 1); filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .25)); }
 .wii-hand svg { display: block; width: 100%; transform: rotate(-12deg); animation: wii-bob 2.4s ease-in-out infinite; }
 @keyframes wii-bob { 50% { transform: rotate(-9deg) translate(1px, -3px); } }
 .wii-arrow { position: absolute; top: 34%; width: 5vh; height: 12vh; border: 0; border-radius: 2.5vh; cursor: pointer; opacity: 0; transition: opacity .2s;
-  background: linear-gradient(#5fd0f6, #1aa6dc); box-shadow: 0 0 0 3px #fff, 0 2px 8px rgba(0, 0, 0, .18); }
+  background: linear-gradient(var(--wii-c), var(--wii-b)); box-shadow: 0 0 0 3px #fff, 0 2px 8px rgba(0, 0, 0, .18); }
 .wii-arrow i { position: absolute; left: 50%; top: 50%; width: 0; height: 0; border: 1.4vh solid transparent; }
 .wii-arrow.l { left: 1.2vw; } .wii-arrow.r { right: 1.2vw; }
 .wii-arrow.l i { border-right: 1.8vh solid #fff; border-left: 0; transform: translate(-60%, -50%); }
 .wii-arrow.r i { border-left: 1.8vh solid #fff; border-right: 0; transform: translate(-40%, -50%); }
 .wii-arrow.show { opacity: 1; }
-.wii-folder { position: absolute; top: 1.2vh; left: 3vw; font-size: clamp(15px, 2.6vh, 26px); color: #2fa9e0; text-transform: capitalize; opacity: 0; transition: opacity .2s; }
+.wii-folder { position: absolute; top: 1.2vh; left: 3vw; font-size: clamp(15px, 2.6vh, 26px); color: var(--wii-b); text-transform: capitalize; opacity: 0; transition: opacity .2s; }
 .wii-folder.show { opacity: 1; }
 .wii-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 26vh; }
 .wii-curve { position: absolute; inset: 0; width: 100%; height: 100%; }
 .wii-curve .fill { fill: url(#wiibar); }
-.wii-curve .line { fill: none; stroke: #7fd3f2; stroke-width: 2.5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 3px rgba(127, 211, 242, .8)); }
+.wii-curve .line { fill: none; stroke: var(--wii-c); stroke-width: 2.5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--wii-a) 80%, transparent)); }
 .wii-time { position: absolute; left: 0; right: 0; top: 40%; display: flex; flex-direction: column; align-items: center; gap: .2vh; color: #8f979d; }
 .wii-time b { font-size: clamp(30px, 7.4vh, 74px); font-weight: 300; letter-spacing: .02em; line-height: 1; display: flex; align-items: baseline; }
 .wii-time .colon { animation: wii-blink 1s steps(1) infinite; padding: 0 .04em; }
@@ -100,7 +101,7 @@ body[data-look="wii"] #hints { color: #8a9298; text-shadow: none; bottom: auto; 
 .wii-round .ico { width: 44%; height: 44%; }
 .wii-mark { font-size: 5.6vh; font-weight: 800; letter-spacing: -.02em; color: inherit; }
 .wii-round.left { left: 4.2vw; } .wii-round.right { right: 4.2vw; }
-.wii-round.on { color: #2fa9e0; box-shadow: 0 0 0 2px #fff, 0 0 0 6px #4ac6f2, 0 0 18px 7px rgba(74, 198, 242, .55); }
+.wii-round.on { color: var(--wii-b); box-shadow: 0 0 0 2px #fff, 0 0 0 6px var(--wii-a), 0 0 18px 7px color-mix(in srgb, var(--wii-a) 55%, transparent); }
 .wii-preview { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .25s;
   background: repeating-linear-gradient(180deg, #f6f7f8 0 2px, #eceef0 2px 4px); }
 .wii-preview.show { opacity: 1; pointer-events: auto; }
@@ -115,7 +116,7 @@ body[data-look="wii"] #hints { color: #8a9298; text-shadow: none; bottom: auto; 
 .wii-pv-btns { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: 10vw; }
 .wii-btn { display: grid; place-items: center; width: 27vw; height: 12vh; border-radius: 6vh; border: 0; font: inherit; font-size: clamp(16px, 3.2vh, 32px); color: #5c656c; cursor: pointer;
   background: linear-gradient(#fff, #e6eaed); box-shadow: 0 0 0 2px #c7cdd2, 0 0 0 6px #f4f6f7, 0 0 0 7.5px #cfd5da, 0 4px 10px rgba(0, 0, 0, .1); text-transform: capitalize; transition: box-shadow .18s, color .18s; }
-.wii-btn.on { color: #1b9fd6; box-shadow: 0 0 0 2px #fff, 0 0 0 6px #4ac6f2, 0 0 18px 7px rgba(74, 198, 242, .55); }
+.wii-btn.on { color: var(--wii-b); box-shadow: 0 0 0 2px #fff, 0 0 0 6px var(--wii-a), 0 0 18px 7px color-mix(in srgb, var(--wii-a) 55%, transparent); }
 
 /* ---------- 360 nxe ---------- */
 .nxe { position: fixed; inset: 0; overflow: hidden; color: var(--pv-on, #fff); }
@@ -245,7 +246,7 @@ body[data-look="switch"]:has(.tstrip.dark) #hints { color: #ddd; }
 .ts-face b { font-size: clamp(13px, 2.2vh, 22px); font-weight: 500; text-align: center; padding: 0 10px; }
 .ts-tile.on { box-shadow: 0 0 0 4px var(--ts-accent), 0 0 0 8px #fff, 0 6px 16px rgba(0, 0, 0, .2); animation: ts-pulse 1.4s ease-in-out infinite; }
 .tstrip.dark .ts-tile.on { box-shadow: 0 0 0 4px var(--ts-accent), 0 0 0 8px #2d2d2d, 0 6px 16px rgba(0, 0, 0, .4); }
-@keyframes ts-pulse { 50% { box-shadow: 0 0 0 4px #4fe0ff, 0 0 0 8px #fff, 0 6px 16px rgba(0, 0, 0, .2); } }
+@keyframes ts-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ts-accent) 60%, #fff), 0 0 0 8px var(--ts-ring, #fff), 0 6px 16px rgba(0, 0, 0, .2); } }
 .ts-round { position: absolute; left: 0; right: 0; top: 72vh; display: flex; justify-content: center; gap: 2.4vw; }
 .ts-btn { position: relative; width: 9vh; height: 9vh; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; background: #fff; color: #2d2d2d; box-shadow: 0 2px 6px rgba(0, 0, 0, .12); }
 .tstrip.dark .ts-btn { background: #3d3d3d; color: #fff; }
@@ -360,3 +361,34 @@ body[data-look="retro"] #hints { color: #e8f5e0; text-shadow: 0 1px 3px rgba(0, 
 .retro-dock-item .art.noart { display: grid; place-items: center; }
 .retro-dock-item .noart-name { font-size: 9px; padding: 2px; }
 .retro-dock-item.focus { transform: scale(1.18); box-shadow: 0 0 0 3px #fff, 0 0 16px color-mix(in srgb, var(--c) 80%, #fff); z-index: 1; }
+
+/* ---------- customize: background and tile colors for every style ----------
+   --look-accent and --look-bg1..3 are only set when picked in customize. */
+body.custom-bg[data-look="xmb"], body.custom-bg[data-look="blades"], body.custom-bg[data-look="ps5"] { background: linear-gradient(var(--look-bg1), var(--look-bg3)); }
+body.custom-bg .wii, body.custom-bg .wii-preview { background: repeating-linear-gradient(180deg, var(--look-bg1) 0 2px, var(--look-bg2) 2px 4px); }
+body.custom-bg .wii-folder { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
+body.custom-bg[data-look="wii"] #hints { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
+body.custom-bg .ps5-bg.plain { background: radial-gradient(120% 90% at 70% 30%, var(--look-bg1), var(--look-bg3) 70%); }
+body.custom-tile .ps5-actions .ps5-play { background: var(--look-accent); color: #fff; }
+body.custom-tile .ps5-icon .art-icon, body.custom-tile .ps5-icon .art-pic { background: linear-gradient(160deg, var(--look-accent), var(--look-accent-2)); }
+.tstrip { --ts-accent: var(--look-accent, #0ab9e6); }
+body.custom-bg .tstrip { background: var(--look-bg2); }
+body.custom-bg .tstrip .ts-tile, body.custom-bg .tstrip .ts-btn { background: color-mix(in srgb, var(--look-bg2) 70%, #fff); }
+body.custom-bg .tstrip.dark .ts-tile, body.custom-bg .tstrip.dark .ts-btn { background: color-mix(in srgb, var(--look-bg2) 80%, #fff 12%); }
+.tstrip.dark { --ts-ring: #2d2d2d; }
+body.custom-bg .tstrip { --ts-ring: var(--look-bg2); }
+body.custom-bg .tstrip .ts-tile.on { box-shadow: 0 0 0 4px var(--ts-accent), 0 0 0 8px var(--ts-ring), 0 6px 16px rgba(0, 0, 0, .3); }
+.ts-user.on, .ts-btn.on { box-shadow: 0 0 0 3px var(--ts-accent), 0 0 0 6px color-mix(in srgb, var(--ts-accent) 30%, transparent); }
+.ts-face > .art { background: color-mix(in srgb, var(--ts-accent) 12%, transparent); }
+body.custom-bg .retro { background: radial-gradient(90% 70% at 62% 38%, color-mix(in srgb, var(--c) 30%, var(--look-bg1)) 0%, var(--look-bg2) 48%, var(--look-bg3) 100%); }
+
+/* ---------- customize: text size for every style ----------
+   zoom also scales an element's own left/top/transform, so only text that
+   flows in its box is zoomed; labels placed by the styles' JS scale their
+   font size instead. */
+.xmb-text, .nxe-cap, .nxe-info b, .nxe-info span, .blade-item, .blade-desc, .ps5-name b, .ps5-sub, .ps5-tab,
+.wii-pv-text b, .wii-pv-text span, .ts-face b, .retro-cap, .retro-info, .retro-tab span, .retro-shelf-head b, .retro-shelf-head span { zoom: var(--look-text, 1); }
+.nxe-title { font-size: calc(clamp(16px, 3.2vh, 32px) * var(--look-text, 1)); }
+.nxe-title.on { font-size: calc(clamp(20px, 4.4vh, 44px) * var(--look-text, 1)); }
+.ts-label { font-size: calc(clamp(14px, 2.6vh, 26px) * var(--look-text, 1)); }
+.xmb-cat span { font-size: calc(clamp(12px, 2vh, 20px) * var(--look-text, 1)); }

@@ -928,6 +928,10 @@ const lookCtx = {
     else activateTile();
   },
   activateUser: () => openSignIn(),
+  // Customize settings, for the styles: null = the style's own colors.
+  accent: () => TILE_HEX[state.settings.tileColor] || null,
+  backdrop: () => BG_HEX[state.settings.bgColor] || null,
+  scale: () => TILE_SIZES[state.settings.tileSize] || 1,
   hints: () => renderHints(), openGuide: () => openGuide(), openLibrary: (o) => openLibrary(o),
 };
 
@@ -1871,19 +1875,20 @@ function openCustomize() {
     change: (d) => save({ [key]: step(values, state.settings[key], d) }),
   });
   const named = (v) => v || 'theme default';
+  const metroOnly = () => ((state.settings.look || 'metro') === 'metro' ? '' : ' (360 metro style only)');
   const tabs = [
     { icon: 'palette', label: 'colors', items: () => [
       opt('grid', 'dashboard style', 'look', Object.keys(LOOK_NAMES), (v) => LOOK_NAMES[v], null, 'the whole home screen: 360 metro, nxe or blades, a cross media bar, channels, modern cards, a tile strip, or retro plus (old-school gloss with modern shortcuts)'),
       opt('palette', 'theme', 'theme', THEMES, (v) => v, null, 'the overall style; colors below go on top of it'),
-      opt('grid', 'tile color', 'tileColor', ['', ...Object.keys(TILE_HEX)], named, (v) => TILE_HEX[v] || 'var(--tile)', 'the color of the dashboard tiles'),
-      opt('image', 'background', 'bgColor', ['', ...Object.keys(BG_HEX)], named, (v) => (BG_HEX[v] ? `linear-gradient(${BG_HEX[v].join(',')})` : 'var(--bg-mid)'), 'the color behind the tiles'),
+      opt('grid', 'tile color', 'tileColor', ['', ...Object.keys(TILE_HEX)], named, (v) => TILE_HEX[v] || 'var(--tile)', 'tiles and highlights in every style; theme default keeps each style\'s own colors'),
+      opt('image', 'background', 'bgColor', ['', ...Object.keys(BG_HEX)], named, (v) => (BG_HEX[v] ? `linear-gradient(${BG_HEX[v].join(',')})` : 'var(--bg-mid)'), 'the color behind everything, in every style'),
     ] },
     { icon: 'grid', label: 'layout', items: () => [
-      opt('grid', 'tile size', 'tileSize', Object.keys(TILE_SIZES), (v) => v, null, 'smaller tiles fit more on the screen at once'),
-      opt('info', 'text size', 'textSize', Object.keys(TEXT_SIZES), (v) => v, null, 'tile names and captions'),
-      opt('play', 'recent games', 'recentCount', COUNTS.recentCount, (v) => (v ? `${v} on the games tab` : 'none'), null, 'how many recent games the games tab shows next to the library'),
+      opt('grid', 'tile size', 'tileSize', Object.keys(TILE_SIZES), (v) => v, null, 'smaller tiles fit more on the screen at once (every style but channels)'),
+      opt('info', 'text size', 'textSize', Object.keys(TEXT_SIZES), (v) => v, null, 'names and captions, in every style'),
+      opt('play', 'recent games', 'recentCount', COUNTS.recentCount, (v) => (v ? `${v} on the games tab` : 'none'), null, `how many recent games the games tab shows next to the library${metroOnly()}`),
       opt('friends', 'friends shown', 'friendCount', COUNTS.friendCount, (v) => `up to ${v}`, null, 'how many friends the social tab lists'),
-      { icon: 'refresh', label: 'cycle home games', note: state.settings.cycleTiles ? 'on' : 'off', info: 'the two small game tiles on home change every few seconds', change: () => save({ cycleTiles: !state.settings.cycleTiles }) },
+      { icon: 'refresh', label: 'cycle home games', note: state.settings.cycleTiles ? 'on' : 'off', info: `the two small game tiles on home change every few seconds${metroOnly()}`, change: () => save({ cycleTiles: !state.settings.cycleTiles }) },
     ] },
     { icon: 'controller', label: 'tabs', items: () => Object.entries(TAB_NAMES).map(([key, label]) => {
       const off = state.settings.hiddenTabs.includes(key);
@@ -1949,9 +1954,14 @@ function applySettings() {
   const vars = {
     '--tile': tile, '--accent': tile, '--accent-2': tile && `color-mix(in srgb, ${tile} 70%, #000)`,
     '--bg-top': bg && bg[0], '--bg-mid': bg && bg[1], '--bg-bot': bg && bg[2],
+    // The other dashboard styles keep their own colors unless these are set.
+    '--look-accent': tile, '--look-accent-2': tile && `color-mix(in srgb, ${tile} 70%, #000)`,
+    '--look-bg1': bg && bg[0], '--look-bg2': bg && bg[1], '--look-bg3': bg && bg[2],
+    '--look-text': TEXT_SIZES[s.textSize] || 1,
   };
   for (const [k, v] of Object.entries(vars)) if (v) b.style.setProperty(k, v); else b.style.removeProperty(k);
   b.classList.toggle('custom-bg', !!bg);
+  b.classList.toggle('custom-tile', !!tile);
   b.style.setProperty('--text-scale', (TEXT_SIZES[s.textSize] || 1) * (0.5 + 0.5 * (TILE_SIZES[s.tileSize] || 1)));
   dressAvatar();
   sound.configure(state.settings);

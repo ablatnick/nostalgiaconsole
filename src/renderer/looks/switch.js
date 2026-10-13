@@ -3,7 +3,7 @@
 // a row of round shortcut buttons below, and a thin footer. Light or dark
 // to match the theme. Left/right move, down goes to the round buttons,
 // up from the tiles goes to your profile.
-import { itemTitle, itemArt, runClock } from './common.js';
+import { itemTitle, itemArt, runClock, isDark } from './common.js';
 
 export default function createSwitch(ctx, root) {
   const { el, esc, icon, state, sound } = ctx;
@@ -55,7 +55,8 @@ export default function createSwitch(ctx, root) {
   function render() {
     const keep = tiles[i] && tiles[i].key;
     const theme = state.settings.theme;
-    box.classList.toggle('dark', theme === 'midnight' || theme === 'ember' || state.settings.bgColor === 'black' || state.settings.bgColor === 'graphite');
+    const bg = ctx.backdrop();
+    box.classList.toggle('dark', bg ? isDark(bg[1]) : theme === 'midnight' || theme === 'ember');
     if (section) {
       const s = ctx.catalog().find((x) => x.key === section.key);
       tiles = s ? s.items : [];
@@ -96,7 +97,7 @@ export default function createSwitch(ctx, root) {
   function layout() {
     const W = innerWidth;
     const H = innerHeight;
-    const size = H * 0.42;
+    const size = H * 0.42 * ctx.scale();
     const gap = H * 0.022;
     // Keep the focused tile in view, scrolling a tile at a time.
     const visible = Math.floor((W * 0.9) / (size + gap));

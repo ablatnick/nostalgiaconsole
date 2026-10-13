@@ -64,7 +64,7 @@ export default function createRetro(ctx, root) {
     menu.innerHTML = '';
     secs.forEach((s, si) => {
       const m = el('div', 'retro-tab', `${icon(s.icon)}<span>${esc(s.title)}</span>`);
-      m.style.setProperty('--c', COLORS[s.key] || '#5aa51e');
+      m.style.setProperty('--c', ctx.accent() || COLORS[s.key] || '#5aa51e');
       m.addEventListener('click', () => { cur = si; zone = 'shelf'; sound.play('channel'); fill(); });
       menu.append(m);
     });
@@ -88,7 +88,7 @@ export default function createRetro(ctx, root) {
   function fill() {
     shelf.innerHTML = '';
     const s = secs[cur];
-    box.style.setProperty('--c', (s && COLORS[s.key]) || '#5aa51e');
+    box.style.setProperty('--c', ctx.accent() || (s && COLORS[s.key]) || '#5aa51e');
     (s ? s.items : []).forEach((t, i) => {
       const c = el('div', 'retro-item');
       c.append(itemArt(ctx, t, ['header', 'portrait'], { lazy: true }));
@@ -120,7 +120,7 @@ export default function createRetro(ctx, root) {
     // Shelf: the focused card stays near the left third, so the ones
     // coming up are always visible (the newer convenience).
     const H = innerHeight;
-    const cw = H * 0.2;
+    const cw = H * 0.2 * ctx.scale();
     const gap = H * 0.022;
     const lead = Math.min(f, 1);
     [...shelf.children].forEach((c, i) => {

@@ -3,7 +3,7 @@
 // over a slowly flowing wave. Left/right change category, up/down item.
 import { itemTitle, itemSub, itemArt, runClock, animate, shade } from './common.js';
 
-// Background colour by month when no tile colour is picked.
+// Background colour by month when no background or tile colour is picked.
 const MONTHS = ['#5a6c7a', '#b8a33a', '#5f8f2f', '#c47fa8', '#3f8a3a', '#7a5a9a', '#2f8fa8', '#2a5fb0', '#8a4fa8', '#c4782f', '#8a6a3f', '#a83a3a'];
 
 export default function createXmb(ctx, root) {
@@ -26,8 +26,10 @@ export default function createXmb(ctx, root) {
   stopClock = runClock(clock, true);
 
   function baseColor() {
-    const v = getComputedStyle(document.body).getPropertyValue('--tile').trim();
-    return state.settings.tileColor ? v : MONTHS[new Date().getMonth()];
+    const bg = ctx.backdrop();
+    // Background colours are dark already; lift them so the wave still shows.
+    if (bg) return bg[0];
+    return ctx.accent() || MONTHS[new Date().getMonth()];
   }
 
   // The wave: two soft bands and a few fine lines drifting across.
@@ -101,6 +103,7 @@ export default function createXmb(ctx, root) {
     const x0 = W * 0.24;
     const gap = Math.max(110, W * 0.105);
     const iconH = H * 0.085;
+    const k = ctx.scale();
     [...cats.children].forEach((c, i) => {
       const on = i === cat;
       c.classList.toggle('on', on);
@@ -114,8 +117,8 @@ export default function createXmb(ctx, root) {
       col.classList.toggle('on', on);
       const s = sections[si];
       const f = idx(s);
-      const step = H * 0.105;
-      const big = H * 0.16;
+      const step = H * 0.105 * k;
+      const big = H * 0.16 * k;
       [...col.children].forEach((row, i) => {
         const d = i - f;
         let y;

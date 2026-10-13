@@ -2,7 +2,7 @@
 // fills the screen with a menu on the left and a preview of the focused
 // item on the right; passed blades stack at the left edge, the rest at
 // the right. LB/RB or left/right change blade, up/down move in the menu.
-import { itemTitle, itemSub, itemArt } from './common.js';
+import { itemTitle, itemSub, itemArt, shade } from './common.js';
 
 const COLORS = {
   search: '#7d58c6', games: '#5aa51e', apps: '#1f9a9a', video: '#2b6fd0', streaming: '#4b3fa0',
@@ -27,7 +27,8 @@ export default function createBlades(ctx, root) {
     box.innerHTML = '';
     secs.forEach((s, si) => {
       const b = el('div', 'blade');
-      b.style.setProperty('--blade', COLORS[s.key] || '#5aa51e');
+      const tint = ctx.accent();
+      b.style.setProperty('--blade', tint ? shade(tint, 0.72 + (0.5 * si) / Math.max(1, secs.length - 1)) : COLORS[s.key] || '#5aa51e');
       b.append(el('div', 'blade-tab', esc(s.title)));
       const body = el('div', 'blade-body');
       body.append(el('h2', 'blade-title', esc(s.title)));

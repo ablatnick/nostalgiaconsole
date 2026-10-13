@@ -75,8 +75,8 @@ export default function createPs5(ctx, root) {
     const s = secs[cur];
     const f = s ? idx(s) : 0;
     [...tabs.children].forEach((t, i) => { t.classList.toggle('on', i === cur); t.classList.toggle('focus', zone === 'tabs' && i === cur); });
-    const size = H * 0.11;
-    const big = H * 0.15;
+    const size = H * 0.11 * ctx.scale();
+    const big = H * 0.15 * ctx.scale();
     const gap = H * 0.018;
     const x0 = W * 0.06;
     [...row.children].forEach((c, i) => {
