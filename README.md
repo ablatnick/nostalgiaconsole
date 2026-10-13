@@ -84,6 +84,17 @@ Moonlight is found as `moonlight-qt`/`moonlight` on `PATH`, the snap, the
 Flatpak (`com.moonlight_stream.Moonlight`), or the default install folder on
 Windows and macOS. Set `MOONLIGHT_BIN` to override.
 
+## Sound pack
+
+The interface sounds are synthesized. To use your own, put audio files in
+the `sounds` folder in NostalgiaConsole's user data folder
+(`~/.config/NostalgiaConsole/sounds` on Linux,
+`%APPDATA%\NostalgiaConsole\sounds` on Windows), named after the sound
+they replace: `move`, `channel` (switching pivots), `select`, `back`,
+`open`, `close`, `notify`, `launch`, `error` and `intro`. Any of `.wav`,
+`.ogg`, `.mp3`, `.m4a` or `.flac` works. **Settings > sound pack** opens the
+folder and reloads it. Sounds you don't provide keep the built-in version.
+
 ## Options
 
 - `--steam-root=<folder>` or `STEAM_ROOT`: use this Steam folder. By default

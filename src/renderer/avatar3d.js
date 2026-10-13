@@ -95,11 +95,18 @@ function buildHead(l) {
   for (const s of [-1, 1]) {
     const e = new THREE.Group();
     e.position.set(s * 0.085, 0.035, onFace(0.085, 0.035) - 0.024);
-    e.add(mesh(SPHERE, white, [0, 0, 0], [0.05 * eyeShape[0], 0.058 * eyeShape[1], 0.03]));
+    e.add(mesh(SPHERE, white, [0, 0, 0], [0.056 * eyeShape[0], 0.064 * eyeShape[1], 0.03]));
     if (l.eyes !== 'happy') {
-      e.add(mesh(SPHERE_LO, iris, [s * 0.004, -0.004, 0.024], [0.03, 0.034 * Math.min(1, eyeShape[1] + 0.2), 0.012]));
-      e.add(mesh(SPHERE_LO, dark, [s * 0.004, -0.004, 0.033], [0.015, 0.017, 0.006]));
-      e.add(mesh(SPHERE_LO, shine, [s * 0.004 + 0.012, 0.012, 0.037], [0.007, 0.007, 0.003]));
+      const lash = new THREE.Mesh(new THREE.TorusGeometry(0.056 * eyeShape[0], 0.006, 6, 24, Math.PI * 0.8), dark);
+      lash.position.set(0, 0.002, 0.012);
+      lash.rotation.z = Math.PI * 0.1;
+      lash.scale.y = 1.12 * eyeShape[1];
+      e.add(lash);
+    }
+    if (l.eyes !== 'happy') {
+      e.add(mesh(SPHERE_LO, iris, [s * 0.004, -0.004, 0.024], [0.034, 0.038 * Math.min(1, eyeShape[1] + 0.2), 0.012]));
+      e.add(mesh(SPHERE_LO, dark, [s * 0.004, -0.004, 0.033], [0.017, 0.019, 0.006]));
+      e.add(mesh(SPHERE_LO, shine, [s * 0.004 + 0.013, 0.013, 0.037], [0.008, 0.008, 0.003]));
     } else {
       // Closed, smiling eyes: a dark arc.
       const arc = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.007, 8, 24, Math.PI), dark);
@@ -265,7 +272,7 @@ function buildHead(l) {
     head.add(mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.015, 32), black, [0, 0.22, -0.01]));
     head.add(mesh(new THREE.CylinderGeometry(0.181, 0.181, 0.05, 32), hatM, [0, 0.25, -0.01]));
   } else if (l.hat === 'crown') {
-    const gold = mat(0xf2c230, { roughness: 0.25, metalness: 0.8 });
+    const gold = mat(0xf2c230, { roughness: 0.25, metalness: 0.35 });
     head.add(mesh(new THREE.CylinderGeometry(0.17, 0.16, 0.08, 32, 1, true), gold, [0, 0.27, 0]));
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
@@ -276,94 +283,267 @@ function buildHead(l) {
   return head;
 }
 
-function buildArm(l, side) {
-  // Pivot at the shoulder so the arm can swing and wave.
+// ---------- costumes ----------
+// Full outfits that replace the clothes (and sometimes the head). All
+// original designs.
+const COSTUMES = {
+  robot: { suit: 0xb8c2cc, metal: true, head: 'robot', trim: 0x2a7fd6 },
+  astronaut: { suit: 0xf2f2ee, head: 'astronaut', trim: 0x2a7fd6, pack: true },
+  pilot: { suit: 0x2d5fa8, head: 'pilot', trim: 0xf2f2f2 },
+  trooper: { suit: 0x3e4a3a, armor: 0x6f7d66, head: 'trooper', trim: 0x9aa58e },
+  robe: { suit: 0x3b3f6e, robe: true, head: 'hood', trim: 0xc9a54a },
+  knight: { suit: 0x8d949b, metal: true, head: 'knight', trim: 0xc4282d },
+  ninja: { suit: 0x1c1d20, head: 'ninja', trim: 0xc4282d },
+  wizard: { suit: 0x5b2f8c, robe: true, head: 'wizard', trim: 0xf2c230 },
+  alien: { suit: 0x2b2f33, head: 'alien', trim: 0x6fdc4b },
+};
+
+function costumeOf(l) {
+  return COSTUMES[l.costume] || null;
+}
+
+// A tapered limb segment: cylinder between two radii with a ball joint at
+// the top.
+function segment(rTop, rBottom, len, material) {
+  const g = new THREE.Group();
+  g.add(mesh(new THREE.CylinderGeometry(rTop, rBottom, len, 24), material, [0, -len / 2, 0]));
+  g.add(mesh(SPHERE_LO, material, [0, 0, 0], [rTop, rTop, rTop]));
+  return g;
+}
+
+function buildArm(l, side, suit) {
+  // Pivot at the shoulder; the forearm hangs from an elbow pivot.
   const arm = new THREE.Group();
   arm.name = side < 0 ? 'armL' : 'armR';
-  const topM = topMaterial(l);
+  const sleeve = suit ? suit.m : topMaterial(l);
   const skin = mat(l.skin, { roughness: 0.55 });
-  const short = l.top === 'tee' || l.top === 'jersey';
-  if (short) {
-    arm.add(mesh(cap(0.06, 0.1), topM, [0, -0.08, 0]));
-    arm.add(mesh(cap(0.048, 0.36), skin, [0, -0.3, 0]));
-  } else {
-    arm.add(mesh(cap(0.058, 0.44), topM, [0, -0.25, 0]));
-  }
-  // Mitten hand.
-  arm.add(mesh(SPHERE, skin, [0, -0.54, 0.005], [0.06, 0.075, 0.045]));
-  arm.add(mesh(SPHERE_LO, skin, [-side * 0.045, -0.51, 0.02], [0.022, 0.035, 0.022]));
+  const short = !suit && (l.top === 'tee' || l.top === 'jersey');
+  arm.add(mesh(SPHERE, sleeve, [0, 0, 0], [0.057, 0.06, 0.058]));
+  const upper = segment(0.05, 0.043, 0.25, sleeve);
+  if (short) upper.children[0].scale.y = 0.45;
+  arm.add(upper);
+  if (short) arm.add(mesh(new THREE.CylinderGeometry(0.043, 0.04, 0.14, 20), skin, [0, -0.18, 0]));
+  const elbow = new THREE.Group();
+  elbow.name = 'elbow';
+  elbow.position.set(0, -0.25, 0);
+  elbow.rotation.x = -0.12;
+  const foreM = short ? skin : sleeve;
+  elbow.add(segment(0.042, 0.034, 0.22, foreM));
+  if (suit && suit.trim) elbow.add(mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.03, 20), mat(suit.trim), [0, -0.2, 0]));
+  // Hand: palm, fingers block and a thumb (gloves for most costumes).
+  const handM = suit && suit.gloves ? suit.gloves : skin;
+  elbow.add(mesh(SPHERE, handM, [0, -0.27, 0.005], [0.042, 0.055, 0.03]));
+  elbow.add(mesh(SPHERE, handM, [0, -0.315, 0.01], [0.036, 0.038, 0.026]));
+  const thumb = mesh(cap(0.012, 0.03), handM, [-side * 0.032, -0.262, 0.022]);
+  thumb.rotation.z = side * 0.6;
+  elbow.add(thumb);
+  arm.add(elbow);
   return arm;
+}
+
+function costumeHead(l, c, head) {
+  const trim = mat(c.trim, { roughness: 0.35 });
+  switch (c.head) {
+    case 'robot': {
+      const metal = mat(c.suit, { roughness: 0.25, metalness: 0.35 });
+      head.add(mesh(SPHERE, metal, [0, 0.01, 0], [0.24, 0.25, 0.24]));
+      const visor = mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.07, 32, 1, true, -Math.PI * 0.42, Math.PI * 0.84), mat(0x29d4ff, { emissive: 0x29d4ff, emissiveIntensity: 1.2, side: THREE.DoubleSide }), [0, 0.03, 0.012]);
+      head.add(visor);
+      head.add(mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.14, 8), metal, [0.1, 0.3, 0]));
+      head.add(mesh(SPHERE_LO, trim, [0.1, 0.38, 0], [0.02, 0.02, 0.02]));
+      for (const s of [-1, 1]) {
+        const ear = mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 24), trim, [s * 0.24, 0, 0]);
+        ear.rotation.z = Math.PI / 2;
+        head.add(ear);
+      }
+      return 'replace';
+    }
+    case 'alien': {
+      const green = mat(0x8fd16a, { roughness: 0.45 });
+      head.add(mesh(SPHERE, green, [0, 0.05, 0], [0.25, 0.3, 0.24]));
+      head.add(mesh(SPHERE, green, [0, -0.13, 0.04], [0.13, 0.1, 0.13]));
+      for (const s of [-1, 1]) {
+        const eye = mesh(SPHERE, mat(0x0b0b0d, { roughness: 0.05, metalness: 0.3 }), [s * 0.1, 0.02, 0.19], [0.075, 0.045, 0.04]);
+        eye.rotation.z = s * 0.45;
+        head.add(eye);
+      }
+      return 'replace';
+    }
+    case 'knight': {
+      const metal = mat(c.suit, { roughness: 0.25, metalness: 0.35 });
+      head.add(mesh(SPHERE, metal, [0, 0.02, 0], [0.255, 0.28, 0.255]));
+      head.add(mesh(new THREE.BoxGeometry(1, 1, 1), mat(0x111111), [0, 0.03, 0.24], [0.2, 0.025, 0.03]));
+      for (let i = 0; i < 4; i++) head.add(mesh(new THREE.BoxGeometry(1, 1, 1), mat(0x111111), [-0.045 + i * 0.03, -0.06, 0.235], [0.012, 0.07, 0.03]));
+      const plume = mesh(cap(0.04, 0.22), trim, [0, 0.3, -0.06]);
+      plume.rotation.x = -0.9;
+      head.add(plume);
+      return 'replace';
+    }
+    case 'trooper': {
+      const armor = mat(c.armor, { roughness: 0.4, metalness: 0.2 });
+      head.add(mesh(SPHERE, armor, [0, 0.03, 0], [0.255, 0.28, 0.255]));
+      head.add(mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.09, 32, 1, true, -Math.PI * 0.4, Math.PI * 0.8), mat(0x15181a, { roughness: 0.1, metalness: 0.5, side: THREE.DoubleSide }), [0, 0.03, 0.01]));
+      head.add(mesh(new THREE.BoxGeometry(1, 1, 1), mat(c.trim), [0, -0.1, 0.2], [0.12, 0.05, 0.08]));
+      return 'replace';
+    }
+    case 'astronaut': {
+      head.add(mesh(SPHERE, mat(0xffffff, { transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.2 }), [0, 0.02, 0.01], [0.33, 0.34, 0.33]));
+      const ring = mesh(new THREE.TorusGeometry(0.2, 0.035, 12, 40), mat(c.suit), [0, -0.27, 0.01]);
+      ring.rotation.x = Math.PI / 2;
+      head.add(ring);
+      return 'keep';
+    }
+    case 'pilot': {
+      head.add(mesh(shell(0.55), mat(0xf2f2f2, { roughness: 0.3 }), [0, 0.02, -0.01], [0.27, 0.29, 0.275]));
+      head.add(mesh(new THREE.CylinderGeometry(0.262, 0.262, 0.1, 32, 1, true, -Math.PI * 0.36, Math.PI * 0.72), mat(0xf0b000, { transparent: true, opacity: 0.75, roughness: 0.05, metalness: 0.4, side: THREE.DoubleSide }), [0, 0.07, 0.01]));
+      head.add(mesh(new THREE.BoxGeometry(1, 1, 1), trim, [0, 0.24, 0.12], [0.03, 0.06, 0.12]));
+      return 'nohair';
+    }
+    case 'ninja': {
+      const cloth = mat(c.suit, { roughness: 0.8 });
+      head.add(mesh(shell(0.5), cloth, [0, 0.01, 0], [0.247, 0.275, 0.247]));
+      head.add(mesh(new THREE.SphereGeometry(1, 32, 16, 0, Math.PI * 2, Math.PI * 0.56, Math.PI * 0.44), cloth, [0, -0.01, 0.01], [0.245, 0.27, 0.245]));
+      const band = mesh(new THREE.TorusGeometry(0.248, 0.018, 8, 40), trim, [0, 0.1, 0]);
+      band.rotation.x = Math.PI / 2;
+      head.add(band);
+      return 'nohair';
+    }
+    case 'hood': {
+      const cloth = mat(c.suit, { roughness: 0.85 });
+      // Open at the front (+z) so the face shows.
+      const hood = mesh(new THREE.SphereGeometry(1, 32, 20, Math.PI * 0.72, Math.PI * 1.56, 0, Math.PI * 0.74), cloth, [0, 0.03, -0.02], [0.29, 0.32, 0.3]);
+      hood.material.side = THREE.DoubleSide;
+      head.add(hood);
+      return 'nohair';
+    }
+    case 'wizard': {
+      const cloth = mat(c.suit, { roughness: 0.75 });
+      head.add(mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.02, 40), cloth, [0, 0.17, -0.01]));
+      const cone = mesh(new THREE.ConeGeometry(0.2, 0.5, 32), cloth, [0, 0.42, -0.03]);
+      cone.rotation.x = -0.15;
+      head.add(cone);
+      for (const [x, y] of [[0.06, 0.3], [-0.08, 0.4], [0.03, 0.52]]) head.add(mesh(SPHERE_LO, mat(c.trim, { emissive: c.trim, emissiveIntensity: 0.5 }), [x, y, 0.13], [0.018, 0.018, 0.01]));
+      return 'nohat';
+    }
+    default: return 'keep';
+  }
 }
 
 export function buildAvatar(input) {
   const l = normalizeLook(input);
+  const c = costumeOf(l);
   const bx = BUILD[l.build] || 1;
   const root = new THREE.Group();
   const body = new THREE.Group();
   body.name = 'body';
   root.add(body);
 
-  const pantsM = mat(l.bottomsColor, { roughness: 0.75 });
+  const suitM = c ? mat(c.suit, c.metal ? { roughness: 0.25, metalness: 0.35 } : { roughness: 0.7 }) : null;
+  const suit = c ? { m: suitM, trim: c.trim, gloves: c.head === 'robot' || c.head === 'knight' ? suitM : mat(c.head === 'astronaut' ? 0xffffff : 0x1c1d20, { roughness: 0.6 }) } : null;
+  const pantsM = suit ? suitM : mat(l.bottomsColor, { roughness: 0.75 });
   const skin = mat(l.skin, { roughness: 0.55 });
-  const shoeM = mat(l.shoes, { roughness: 0.5 });
-  const sole = mat(0xf2f2f2, { roughness: 0.6 });
+  const shoeM = c ? mat(c.metal ? c.suit : 0x222326, c.metal ? { roughness: 0.25, metalness: 0.35 } : { roughness: 0.5 }) : mat(l.shoes, { roughness: 0.5 });
+  const sole = mat(c ? 0x2b2f33 : 0xf2f2f2, { roughness: 0.6 });
 
-  // Feet.
+  // Shoes / boots.
   for (const s of [-1, 1]) {
-    body.add(mesh(SPHERE, shoeM, [s * 0.1 * bx, 0.06, 0.05], [0.075, 0.06, 0.13]));
-    body.add(mesh(new THREE.CylinderGeometry(1, 1, 1, 24), sole, [s * 0.1 * bx, 0.012, 0.05], [0.075, 0.024, 0.13]));
+    const boot = c ? 1.15 : 1;
+    body.add(mesh(SPHERE, shoeM, [s * 0.095 * bx, 0.058, 0.045], [0.066, 0.06 * boot, 0.125]));
+    body.add(mesh(new THREE.CylinderGeometry(1, 1, 1, 24), sole, [s * 0.095 * bx, 0.012, 0.045], [0.068, 0.024, 0.128]));
+    if (c) body.add(mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.16, 20), shoeM, [s * 0.095 * bx, 0.15, 0]));
   }
 
-  // Legs and bottoms.
-  const bareLegs = l.bottoms === 'shorts' || l.bottoms === 'skirt';
+  // Legs: thigh and shin with a knee.
+  const robe = c && c.robe;
+  const bare = !c && (l.bottoms === 'shorts' || l.bottoms === 'skirt');
   for (const s of [-1, 1]) {
-    if (bareLegs) {
-      body.add(mesh(cap(0.06, 0.48), skin, [s * 0.1 * bx, 0.38, 0]));
-      if (l.bottoms === 'shorts') body.add(mesh(cap(0.085, 0.16), pantsM, [s * 0.1 * bx, 0.72, 0]));
-    } else {
-      body.add(mesh(cap(0.08, 0.6), pantsM, [s * 0.1 * bx, 0.46, 0]));
-      if (l.bottoms === 'cargo') body.add(mesh(new THREE.BoxGeometry(1, 1, 1), mat(shade(l.bottomsColor, -0.08), { roughness: 0.8 }), [s * 0.18 * bx, 0.6, 0], [0.03, 0.1, 0.08]));
-    }
+    const thighM = bare ? skin : pantsM;
+    const leg = new THREE.Group();
+    leg.position.set(s * 0.095 * bx, 0.84, 0);
+    leg.add(segment(0.08, 0.06, 0.36, l.bottoms === 'shorts' && !c ? pantsM : thighM));
+    if (l.bottoms === 'shorts' && !c) leg.add(mesh(new THREE.CylinderGeometry(0.062, 0.058, 0.18, 20), skin, [0, -0.27, 0]));
+    const knee = segment(0.058, 0.044, 0.34, bare ? skin : pantsM);
+    knee.position.y = -0.36;
+    leg.add(knee);
+    if (!c && l.bottoms === 'cargo') leg.add(mesh(new THREE.BoxGeometry(1, 1, 1), mat(shade(l.bottomsColor, -0.08), { roughness: 0.8 }), [s * 0.07, -0.2, 0], [0.025, 0.09, 0.07]));
+    if (c && c.armor) leg.add(mesh(new THREE.BoxGeometry(1, 1, 1), mat(c.armor), [0, -0.5, 0.045], [0.08, 0.14, 0.03]));
+    body.add(leg);
   }
-  if (l.bottoms === 'skirt') body.add(mesh(new THREE.CylinderGeometry(0.19 * bx, 0.31 * bx, 0.36, 32), pantsM, [0, 0.7, 0]));
-  body.add(mesh(SPHERE, pantsM, [0, 0.84, 0], [0.205 * bx, 0.11, 0.13]));
+  if (robe) body.add(mesh(new THREE.CylinderGeometry(0.17 * bx, 0.34 * bx, 0.78, 36), suitM, [0, 0.47, 0]));
+  if (!c && l.bottoms === 'skirt') body.add(mesh(new THREE.CylinderGeometry(0.18 * bx, 0.3 * bx, 0.36, 32), pantsM, [0, 0.7, 0]));
+  body.add(mesh(SPHERE, pantsM, [0, 0.86, 0], [0.19 * bx, 0.1, 0.12]));
 
-  // Torso.
-  const torso = mesh(cap(0.17, 0.3), topMaterial(l), [0, 1.08, 0], [1.12 * bx, 1, 0.78], 'torso');
+  // Torso: chest wider than the waist.
+  const topM = suit ? suitM : topMaterial(l);
+  const profile = [[0.001, 0], [0.15, 0], [0.155, 0.05], [0.15, 0.14], [0.17, 0.26], [0.19, 0.36], [0.185, 0.42], [0.12, 0.47], [0.001, 0.48]]
+    .map(([x, y]) => new THREE.Vector2(x, y));
+  const torso = mesh(new THREE.LatheGeometry(profile, 40), topM, [0, 0.86, 0], [1.15 * bx, 1, 0.72], 'torso');
   body.add(torso);
-  body.add(mesh(SPHERE, mat(l.topColor, { roughness: 0.7 }), [0, 1.27, 0], [0.24 * bx, 0.1, 0.14]));
-  if (l.top === 'hoodie') {
-    const hood = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.045, 12, 28), mat(shade(l.topColor, -0.07)));
-    hood.position.set(0, 1.31, -0.015);
+  if (!c && l.top === 'hoodie') {
+    const hood = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.04, 12, 28), mat(shade(l.topColor, -0.07)));
+    hood.position.set(0, 1.32, -0.015);
     hood.rotation.x = Math.PI / 2;
     body.add(hood);
-    for (const s of [-1, 1]) body.add(mesh(cap(0.007, 0.12), mat(0xffffff), [s * 0.04, 1.2, 0.135]));
+    for (const s of [-1, 1]) body.add(mesh(cap(0.006, 0.11), mat(0xffffff), [s * 0.035, 1.2, 0.128]));
   }
-  if (l.top === 'jacket') body.add(mesh(new THREE.BoxGeometry(1, 1, 1), mat(shade(l.topColor, -0.2)), [0, 1.08, 0.134], [0.012, 0.42, 0.01]));
-  if (l.top === 'hoodie' || l.top === 'tee') {
-    // A small round chest logo.
-    for (const [r, z, c] of [[0.045, 0.134, 0xffffff], [0.03, 0.137, l.topColor]]) {
-      const disc = mesh(new THREE.CylinderGeometry(1, 1, 1, 32), mat(c, { roughness: 0.4 }), [0, 1.12, z], [r, 0.004, r]);
+  if (!c && l.top === 'jacket') body.add(mesh(new THREE.BoxGeometry(1, 1, 1), mat(shade(l.topColor, -0.2)), [0, 1.08, 0.128], [0.012, 0.42, 0.01]));
+  if (!c && (l.top === 'hoodie' || l.top === 'tee')) {
+    for (const [r, z, col] of [[0.04, 0.13, 0xffffff], [0.027, 0.133, l.topColor]]) {
+      const disc = mesh(new THREE.CylinderGeometry(1, 1, 1, 32), mat(col, { roughness: 0.4 }), [0, 1.12, z], [r, 0.004, r]);
       disc.rotation.x = Math.PI / 2;
       body.add(disc);
     }
   }
+  if (c) {
+    const trimM = mat(c.trim, { roughness: 0.35 });
+    body.add(mesh(new THREE.CylinderGeometry(0.175 * bx, 0.175 * bx, 0.04, 32), trimM, [0, 0.9, 0], [1.1, 1, 0.75]));
+    if (c.armor) {
+      const plate = mat(c.armor, { roughness: 0.4, metalness: 0.2 });
+      body.add(mesh(SPHERE, plate, [0, 1.15, 0.05], [0.17 * bx, 0.15, 0.1]));
+      for (const s of [-1, 1]) body.add(mesh(SPHERE, plate, [s * 0.235 * bx, 1.27, 0], [0.08, 0.06, 0.08]));
+    }
+    if (c.pack) body.add(mesh(new THREE.BoxGeometry(1, 1, 1), mat(0xe2e2dc, { roughness: 0.6 }), [0, 1.1, -0.17], [0.26, 0.32, 0.12]));
+    if (c.head === 'pilot') body.add(mesh(new THREE.BoxGeometry(1, 1, 1), mat(0xf2f2f2), [0, 1.08, 0.13], [0.12, 0.1, 0.02]));
+    if (c.head === 'robot') {
+      const light = mesh(new THREE.CylinderGeometry(1, 1, 1, 24), mat(0x29d4ff, { emissive: 0x29d4ff, emissiveIntensity: 0.8 }), [0, 1.12, 0.13], [0.04, 0.005, 0.04]);
+      light.rotation.x = Math.PI / 2;
+      body.add(light);
+    }
+    if (robe) {
+      const sash = mesh(new THREE.TorusGeometry(0.16 * bx, 0.016, 8, 40), trimM, [0, 0.98, 0]);
+      sash.rotation.x = Math.PI / 2;
+      sash.scale.set(1.1, 0.75, 1);
+      body.add(sash);
+    }
+  }
 
-  // Arms (pivots at the shoulders).
+  // Arms, held slightly away from the body.
   for (const s of [-1, 1]) {
-    const arm = buildArm(l, s);
-    arm.position.set(s * 0.25 * bx, 1.27, 0);
-    arm.rotation.z = s * 0.1;
+    const arm = buildArm(l, s, suit);
+    arm.position.set(s * 0.24 * bx, 1.27, 0);
+    arm.rotation.z = s * 0.14;
     body.add(arm);
   }
 
   // Neck and head.
-  body.add(mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.12, 20), skin, [0, 1.36, 0]));
+  body.add(mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.12, 20), c && c.head === 'robot' ? suitM : skin, [0, 1.36, 0]));
   const headPivot = new THREE.Group();
   headPivot.name = 'headPivot';
   headPivot.position.set(0, 1.4, 0);
-  const head = buildHead(l);
-  head.position.set(0, 0.24, 0.01);
+  let head;
+  if (c) {
+    const probe = new THREE.Group();
+    const mode = costumeHead(l, c, probe);
+    if (mode === 'replace') head = probe;
+    else {
+      head = buildHead({ ...l, hairStyle: mode === 'nohair' ? 'bald' : l.hairStyle, hat: 'none', glasses: mode === 'keep' ? l.glasses : 'none' });
+      for (const ch of [...probe.children]) head.add(ch);
+    }
+    head.name = 'head';
+  } else {
+    head = buildHead(l);
+  }
+  head.position.set(0, 0.25, 0.01);
   headPivot.add(head);
   body.add(headPivot);
   return root;

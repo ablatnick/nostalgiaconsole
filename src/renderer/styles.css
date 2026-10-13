@@ -559,3 +559,32 @@ body.avatar-shot > :not(#shot) { display: none !important; }
 #gamercard .gc-sub, #clock { color: var(--pv-dim); text-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
 .ribbons { opacity: .45; }
 img.av-full { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+/* ---------- 2011 dashboard look ---------- */
+/* Flat slate background, flat lime tiles nearly touching, thick white
+   inner focus border, white captions. */
+body[data-theme="classic"] {
+  --bg-top: #8c969d; --bg-mid: #a3acb2; --bg-bot: #bfc6ca; --tile: #7cc13a;
+}
+body[data-theme="classic"] #bg .glow, body[data-theme="classic"] #bg .ribbons, body[data-theme="classic"] #bg .sparks { display: none; }
+body[data-theme="classic"] #bg { background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 55%, var(--bg-bot) 100%); }
+.tile { background: var(--tile); box-shadow: none; outline: 0; }
+.tile.grey { background: rgba(255, 255, 255, .22); }
+.tile.other { opacity: .5; }
+.tile.focused { transform: none; box-shadow: inset 0 0 0 4px #fff; outline: 0; }
+.tile.focused::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 4px #fff; z-index: 6; pointer-events: none; }
+.t-cap { padding: 22% 11px 8px; }
+.t-cap b { font-size: clamp(13px, 2.3vh, 24px); font-weight: 400; }
+.tile.big .t-cap b { font-size: clamp(14px, 2.5vh, 26px); }
+.t-cap span { font-size: clamp(10px, 1.45vh, 15px); }
+.t-icon .t-cap, .t-avatar .t-cap { text-shadow: none; }
+.tile-ico { top: 40%; width: 34%; height: 34%; }
+.pv-head { gap: clamp(24px, 3.6vw, 56px); }
+.pv-label { font-weight: 300; font-size: clamp(20px, 4vh, 40px); color: rgba(255, 255, 255, .78); text-shadow: none; }
+.pv-label.on { font-weight: 400; font-size: clamp(22px, 4.3vh, 43px); color: #fff; }
+#gamercard .gc-name { font-size: clamp(12px, 1.7vh, 17px); font-weight: 400; }
+#gamercard .gc-sub { font-size: clamp(10px, 1.4vh, 14px); }
+#gamercard .gc-pic { width: clamp(22px, 3.4vh, 34px); height: clamp(22px, 3.4vh, 34px); border-width: 0; border-radius: 0; }
+#clock { display: none; }
+#hints { color: #fff; }
+body.has-overlay #hints { color: var(--dim); text-shadow: none; }

@@ -15,6 +15,7 @@ const ACTIONS = {
   friends: () => 'steam://open/friends',
   downloads: () => 'steam://open/downloads',
   bigpicture: () => 'steam://open/bigpicture',
+  closebigpicture: () => 'steam://close/bigpicture',
   settings: () => 'steam://open/settings',
   library: () => 'steam://open/games',
 };

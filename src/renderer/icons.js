@@ -21,6 +21,7 @@ const P = {
   stream: '<path d="M4 17.5a3 3 0 0 1 3 3M4 13.5a7 7 0 0 1 7 7M4 9.5a11 11 0 0 1 11 11"/><path d="M8 4.5h11.5a1 1 0 0 1 1 1V16"/>',
   monitor: '<rect x="3" y="4.5" width="18" height="12" rx="1.5"/><path d="M8.5 20h7M12 16.5V20"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/>',
   play: '<path d="M8 5.5v13l10.5-6.5z"/>',
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.4"/>',
   pin: '<path d="M9 4h6l-1 5 3.5 3.5h-11L10 9z"/><path d="M12 12.5V20"/>',

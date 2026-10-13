@@ -244,6 +244,13 @@ function settingTiles() {
     { key: 'set:theme', type: 'icon', icon: 'palette', label: 'theme', value: s.theme, title: 'theme', sub: 'change the dashboard colors', colors: ['#7d58c6', '#46297f'], activate: set({ theme: next(THEMES, s.theme) }) },
     { key: 'set:avatar-edit', type: 'avatar', label: 'my avatar', value: 'customize', title: 'my avatar', sub: 'change your avatar\'s features and style', activate: () => openAvatarEditor() },
     { key: 'set:sound', type: 'icon', icon: s.sound ? 'sound' : 'mute', label: 'sounds', value: onoff(s.sound), title: 'interface sounds', sub: 'blips and swooshes while you browse', colors: ['#2c8fd6', '#155988'], activate: set({ sound: !s.sound }) },
+    { key: 'set:pack', type: 'icon', icon: 'sound', label: 'sound pack', value: state.packCount ? `${state.packCount} custom sounds` : 'built-in sounds', title: 'sound pack',
+      activate: async () => {
+        const dir = await api.soundFolder();
+        state.packCount = await sound.loadPack(await api.soundPack());
+        rebuild();
+        toast(state.packCount ? `loaded ${state.packCount} sounds from ${dir}` : `put move.wav, select.wav, back.wav… in ${dir}`);
+      } },
     { key: 'set:volume', type: 'icon', icon: 'volume', label: 'volume', value: `${s.volume}%`, title: 'sound volume', sub: 'loudness of the interface sounds', colors: ['#1aa3a3', '#0d6464'], activate: set({ volume: VOLUMES[(VOLUMES.indexOf(s.volume) + 1) % VOLUMES.length] || 60 }) },
     { key: 'set:intro', type: 'icon', icon: 'sparkle', label: 'startup intro', value: onoff(s.intro), title: 'startup intro', sub: 'play the boot animation when nostalgiaconsole opens', colors: ['#d9a400', '#8d6900'], activate: set({ intro: !s.intro }) },
     { key: 'set:fullscreen', type: 'icon', icon: 'fullscreen', label: 'full screen', value: onoff(s.fullscreen), title: 'full screen', sub: 'start in full screen (F11 switches any time)', colors: ['#4c6b80', '#28404f'],
@@ -360,7 +367,9 @@ function homePivot() {
 function buildChannels() {
   indexLibrary();
   const { lib } = state;
-  const pivots = [homePivot()];
+  const pivots = [{ key: 'search', title: 'search', tiles: flow([
+    { key: 'search:az', type: 'icon', icon: 'search', label: 'search games', value: 'a–z', title: 'search', w: 1, h: 1, cls: 'grey', activate: () => openLibrary({ title: 'search', sort: 1 }) },
+  ]) }, homePivot()];
   if (state.steamGames.length) {
     const lt = libraryTile();
     lt.w = 2; lt.h = 2;
@@ -444,7 +453,7 @@ function caption(t) {
 }
 
 function tileEl(t) {
-  const e = el('div', `tile t-${t.type}` + (t.w > 1 || t.h > 1 ? ' big' : ''));
+  const e = el('div', `tile t-${t.type}` + (t.w > 1 || t.h > 1 ? ' big' : '') + (t.cls ? ' ' + t.cls : ''));
   e.dataset.key = t.key;
   if (t.type === 'game') {
     e.append(artEl(t.game, t.hero ? ['hero', 'header'] : ['header', 'portrait']));
@@ -513,11 +522,15 @@ function clickTile(pi, ti) {
 function metrics() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const g = Math.max(6, Math.round(vh * 0.012));
-  const gridH = Math.min(vh * 0.6, vw * 0.36);
+  const g = Math.max(2, Math.round(vh * 0.004));
+  const gridH = Math.min(vh * 0.46, vw * 0.27);
   const v = (gridH - 2 * g) / ROWS;
   const u = v * 1.32;
-  return { vw, vh, g, u, v, x0: Math.max(40, vw * 0.1), top: Math.max(120, vh * 0.2), gap: u * 0.75 };
+  const homeCols = 4;
+  const homeW = homeCols * u + (homeCols - 1) * g;
+  const x0 = Math.max(40, (vw - homeW) / 2);
+  // Neighbouring pivots only peek in from the screen edges.
+  return { vw, vh, g, u, v, x0, top: Math.max(130, vh * 0.25), gap: Math.max(u * 0.62, x0 - u * 0.45) };
 }
 
 // Pivot start columns in strip pixels.
@@ -658,9 +671,9 @@ function dashHandle(a) {
     case 'x': if (t && t.type === 'game') launch(t.game); else if (t && t.type === 'stream') startStream(t.game); break;
     case 'y': if (t && (t.type === 'game' || t.type === 'stream')) togglePin(t.game); break;
     case 'b':
-      if (state.ch !== 0 || focusIndex(state.channels[0]) !== 0) {
-        state.ch = 0;
-        state.focus[state.channels[0].key] = 0;
+      if (state.channels[state.ch].key !== 'home' || focusIndex(state.channels[state.ch]) !== 0) {
+        state.ch = state.channels.findIndex((c) => c.key === 'home');
+        state.focus.home = 0;
         sound.play('back');
         layout();
       }
@@ -726,7 +739,7 @@ function fillGamerpic(box, user) {
 
 function renderGamercard() {
   $('#gamercard .gc-name').textContent = displayName();
-  $('#gamercard .gc-sub').textContent = gamesLine();
+  $('#gamercard .gc-sub').textContent = state.lib.user ? 'online' : 'offline';
   fillGamerpic($('#gamercard .gc-pic'), state.lib.user);
 }
 
@@ -738,6 +751,7 @@ function tickClock() {
 // ---------- hints ----------
 
 function renderHints() {
+  document.body.classList.toggle('has-overlay', state.overlays.length > 0);
   $('#avatar').classList.toggle('show', avatarShown());
   if (dashAvatar) { if (avatarShown()) dashAvatar.start(); else dashAvatar.stop(); }
   const top = state.overlays[state.overlays.length - 1];
@@ -1229,6 +1243,7 @@ async function boot() {
   state.avatarStamp = Date.now();
   applySettings();
   state.channels = buildChannels();
+  state.ch = state.channels.findIndex((c) => c.key === 'home');
   renderDash();
   renderGamercard();
   tickClock();
@@ -1239,6 +1254,8 @@ async function boot() {
     rebuild();
   });
   startInput(handle);
+  api.soundPack().then((files) => sound.loadPack(files)).then((n) => { state.packCount = n; if (n) rebuild(); }).catch(() => {});
+  api.onWelcomeBack(() => { notify('welcome back', displayName(), { chime: true }); });
   $('#avatar').addEventListener('click', () => { if (!state.overlays.length) openAvatarEditor(); });
   if (settings.intro && (!CAPTURE || params.has('intro'))) runIntro();
   document.body.classList.add('ready');

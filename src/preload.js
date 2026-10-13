@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld('nostalgia', {
   quit: () => ipcRenderer.invoke('app:quit'),
   info: () => ipcRenderer.invoke('app:info'),
   onLibrary: (cb) => ipcRenderer.on('library', (_e, lib) => cb(lib)),
+  onWelcomeBack: (cb) => ipcRenderer.on('welcome-back', () => cb()),
+  soundPack: () => ipcRenderer.invoke('sounds:pack'),
+  soundFolder: () => ipcRenderer.invoke('sounds:folder'),
 });

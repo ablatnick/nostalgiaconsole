@@ -30,12 +30,13 @@ export const PARTS = [
   { key: 'bottoms', group: 'my style', label: 'bottoms', values: ['jeans', 'cargo', 'shorts', 'skirt'] },
   { key: 'bottomsColor', group: 'my style', label: 'bottoms color', colors: C.cloth.slice().reverse() },
   { key: 'shoes', group: 'my style', label: 'shoes', colors: C.shoes },
+  { key: 'costume', group: 'costumes', label: 'costume', values: ['none', 'robot', 'astronaut', 'pilot', 'trooper', 'robe', 'knight', 'ninja', 'wizard', 'alien'] },
 ];
 
 export const DEFAULT_LOOK = {
   build: 'regular', skin: C.skin[1], hairStyle: 'short', hairColor: C.hair[2], eyes: 'round', eyeColor: C.eyes[0],
   brows: 'arched', mouth: 'smile', facialHair: 'none', glasses: 'none', hat: 'none', hatColor: C.cloth[7],
-  top: 'hoodie', topColor: C.cloth[0], bottoms: 'jeans', bottomsColor: C.cloth[11], shoes: C.shoes[0],
+  top: 'hoodie', topColor: C.cloth[0], bottoms: 'jeans', bottomsColor: C.cloth[11], shoes: C.shoes[0], costume: 'none',
 };
 
 function choices(p) {
@@ -60,6 +61,7 @@ export function randomLook() {
   if (Math.random() < 0.6) out.hat = 'none';
   if (Math.random() < 0.6) out.glasses = 'none';
   if (Math.random() < 0.6) out.facialHair = 'none';
+  if (Math.random() < 0.8) out.costume = 'none';
   return out;
 }
 

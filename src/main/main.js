@@ -8,6 +8,9 @@ const { ArtResolver } = require('./art');
 const { openSteam } = require('./launch');
 const { Settings } = require('./settings');
 const { Moonlight } = require('./moonlight');
+const { execFile } = require('child_process');
+const os = require('os');
+const vdf = require('./vdf');
 
 const RENDERER_DIR = path.join(__dirname, '..', 'renderer');
 
@@ -44,7 +47,24 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.json': 'application/json',
 };
-const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' nostalgia: data:; media-src 'self'; font-src 'self'; connect-src 'self'";
+const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' nostalgia: data:; media-src 'self' nostalgia:; font-src 'self'; connect-src 'self' nostalgia:";
+const SOUND_NAMES = ['move', 'channel', 'select', 'back', 'open', 'close', 'error', 'notify', 'launch', 'intro'];
+const SOUND_EXT = { '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.flac': 'audio/flac' };
+
+// A sound pack is a folder of files named after the interface sounds
+// (move.wav, select.ogg, ...) in <user data>/sounds.
+function soundPack() {
+  const dir = path.join(app.getPath('userData'), 'sounds');
+  const out = {};
+  let files = [];
+  try { files = fs.readdirSync(dir); } catch { return out; }
+  for (const f of files) {
+    const ext = path.extname(f).toLowerCase();
+    const name = path.basename(f, path.extname(f)).toLowerCase();
+    if (SOUND_EXT[ext] && SOUND_NAMES.includes(name) && !out[name]) out[name] = f;
+  }
+  return out;
+}
 
 function avatarFile(id64) {
   return path.join(app.getPath('userData'), 'avatars', id64 + '.jpg');
@@ -64,6 +84,13 @@ async function serve(request) {
     } catch {
       return new Response('not found', { status: 404 });
     }
+  }
+  if (url.host === 'sounds') {
+    const name = decodeURIComponent(url.pathname).replace(/^\/+/, '');
+    const file = soundPack()[name];
+    if (!file) return new Response('not found', { status: 404 });
+    const full = path.join(app.getPath('userData'), 'sounds', file);
+    return new Response(await fs.promises.readFile(full), { headers: { 'content-type': SOUND_EXT[path.extname(file).toLowerCase()] } });
   }
   if (url.host === 'art') {
     const [source, id, kind] = url.pathname.split('/').filter(Boolean);
@@ -220,9 +247,66 @@ ipcMain.handle('settings:set', (_e, patch) => {
   if (next.moonlight && !before.moonlight) moonlight.refresh(true).then(() => pushLibrary());
   return next;
 });
+// Steam's "running game" value: the registry on Windows, registry.vdf
+// elsewhere. 0 means no game is running.
+function runningAppId() {
+  return new Promise((resolve) => {
+    if (process.platform === 'win32') {
+      execFile('reg', ['query', 'HKCU\\Software\\Valve\\Steam', '/v', 'RunningAppID'], { windowsHide: true, timeout: 4000 }, (err, out) => {
+        const m = !err && String(out).match(/RunningAppID\s+REG_DWORD\s+0x([0-9a-f]+)/i);
+        resolve(m ? parseInt(m[1], 16) : null);
+      });
+      return;
+    }
+    for (const p of [path.join(os.homedir(), '.steam/registry.vdf'), path.join(os.homedir(), '.var/app/com.valvesoftware.Steam/.steam/registry.vdf'), path.join(os.homedir(), 'snap/steam/common/.steam/registry.vdf')]) {
+      try {
+        const r = vdf.parseText(fs.readFileSync(p, 'utf8'));
+        const v = r.registry.hkcu.software.valve.steam.runningappid;
+        if (v !== undefined) { resolve(Number(v) || 0); return; }
+      } catch { /* try the next location */ }
+    }
+    resolve(null);
+  });
+}
+
+// After a launch, wait for the game to start and then to exit, and come
+// back to the front (Steam otherwise leaves Big Picture or its own
+// window on top).
+let watchTimer = null;
+function watchGame() {
+  clearInterval(watchTimer);
+  const started = Date.now();
+  let seen = false;
+  watchTimer = setInterval(async () => {
+    const id = await runningAppId();
+    if (id === null) { clearInterval(watchTimer); return; }
+    if (id) { seen = true; return; }
+    if (!seen) {
+      if (Date.now() - started > 5 * 60e3) clearInterval(watchTimer);
+      return;
+    }
+    clearInterval(watchTimer);
+    openSteam(shell, library.root, 'closebigpicture').catch(() => {});
+    setTimeout(comeBack, 1500);
+  }, 2500);
+}
+
+function comeBack() {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.moveTop();
+  win.focus();
+  if (settings.values.fullscreen && !win.isFullScreen()) win.setFullScreen(true);
+  setTimeout(() => { if (win && !win.isDestroyed()) win.setAlwaysOnTop(false); }, 2000);
+  win.webContents.send('welcome-back');
+}
+
 ipcMain.handle('steam:open', async (_e, action, id) => {
   if (opts.capture) return 'capture';
   const url = await openSteam(shell, library.root, action, id);
+  if (action === 'run') watchGame();
   if (action === 'run' && win) {
     const after = settings.values.afterLaunch;
     if (after === 'minimize') setTimeout(() => win && !win.isDestroyed() && win.minimize(), 1500);
@@ -249,6 +333,13 @@ ipcMain.handle('window:fullscreen', () => {
   return win.isFullScreen();
 });
 ipcMain.handle('app:quit', () => app.quit());
+ipcMain.handle('sounds:pack', () => soundPack());
+ipcMain.handle('sounds:folder', async () => {
+  const dir = path.join(app.getPath('userData'), 'sounds');
+  fs.mkdirSync(dir, { recursive: true });
+  if (!opts.capture) await shell.openPath(dir);
+  return dir;
+});
 ipcMain.handle('app:info', () => ({ version: app.getVersion(), capture: !!opts.capture }));
 
 // The app used to be called Greenblade; carry its settings (and the avatar
