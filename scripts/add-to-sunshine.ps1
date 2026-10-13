@@ -1,17 +1,17 @@
 <#
-  Installs Greenblade on a Windows Sunshine host and adds it as a Sunshine
+  Installs NostalgiaConsole on a Windows Sunshine host and adds it as a Sunshine
   app, so it shows up with its own cover in Moonlight.
 
   Run in PowerShell on the host:
     .\add-to-sunshine.ps1 -Source <folder or http URL with the installer and cover>
 
-  Without -Installer it only adds the Sunshine app (Greenblade already installed).
+  Without -Installer it only adds the Sunshine app (NostalgiaConsole already installed).
 #>
 param(
   [string]$Source = $PSScriptRoot,
-  [string]$Installer = 'Greenblade Setup 0.2.0.exe',
+  [string]$Installer = 'NostalgiaConsole Setup 0.3.0.exe',
   [string]$InstallerSha256 = '',
-  [string]$Cover = 'greenblade-boxart.png',
+  [string]$Cover = 'nostalgiaconsole-boxart.png',
   [switch]$NoInstall,
   [string]$Exe = ''
 )
@@ -32,15 +32,15 @@ function Get-File([string]$name) {
   return $dest
 }
 
-function Find-Greenblade {
-  foreach ($dir in @("$env:LOCALAPPDATA\Programs\greenblade", "$env:LOCALAPPDATA\Programs\Greenblade", "$env:ProgramFiles\Greenblade")) {
-    $exe = Join-Path $dir 'Greenblade.exe'
+function Find-NostalgiaConsole {
+  foreach ($dir in @("$env:LOCALAPPDATA\Programs\nostalgiaconsole", "$env:LOCALAPPDATA\Programs\NostalgiaConsole", "$env:ProgramFiles\NostalgiaConsole")) {
+    $exe = Join-Path $dir 'NostalgiaConsole.exe'
     if (Test-Path -LiteralPath $exe) { return $exe }
   }
   return $null
 }
 
-# 1. Install Greenblade for this user (silent, per-user NSIS installer).
+# 1. Install NostalgiaConsole for this user (silent, per-user NSIS installer).
 if (-not $NoInstall) {
   $setup = Get-File $Installer
   if ($InstallerSha256) {
@@ -49,14 +49,21 @@ if (-not $NoInstall) {
   }
   # The installer can't replace files of a running copy (say, one left
   # over from a stream).
-  Get-Process Greenblade -ErrorAction SilentlyContinue | Stop-Process -Force
+  Get-Process NostalgiaConsole, Greenblade -ErrorAction SilentlyContinue | Stop-Process -Force
   Start-Sleep -Seconds 1
-  Write-Host 'Installing Greenblade'
+  Write-Host 'Installing NostalgiaConsole'
   Start-Process -FilePath $setup -ArgumentList '/S' -Wait
 }
-$exe = if ($Exe) { $Exe } else { Find-Greenblade }
-if (-not $exe) { throw 'Greenblade.exe not found after install' }
-Write-Host "Greenblade: $exe"
+# The app used to be called Greenblade: remove that install.
+$oldUninstall = "$env:LOCALAPPDATA\Programs\greenblade\Uninstall Greenblade.exe"
+if (-not $NoInstall -and (Test-Path -LiteralPath $oldUninstall)) {
+  Write-Host 'Removing the old Greenblade install'
+  Start-Process -FilePath $oldUninstall -ArgumentList '/S' -Wait
+}
+
+$exe = if ($Exe) { $Exe } else { Find-NostalgiaConsole }
+if (-not $exe) { throw 'NostalgiaConsole.exe not found after install' }
+Write-Host "NostalgiaConsole: $exe"
 
 # 2. Find Sunshine and its apps.json.
 $svc = Get-CimInstance Win32_Service -Filter "Name='SunshineService'" -ErrorAction SilentlyContinue
@@ -95,17 +102,17 @@ New-Item -ItemType Directory -Force -Path $coversDir | Out-Null
 # box art cache cleared to see a new one.
 $coverSrc = Get-File $Cover
 $tag = (Get-FileHash -Algorithm SHA256 -LiteralPath $coverSrc).Hash.Substring(0, 8).ToLower()
-Get-ChildItem -LiteralPath $coversDir -Filter 'greenblade*.png' -ErrorAction SilentlyContinue | Remove-Item -Force
-$coverPath = Join-Path $coversDir "greenblade-$tag.png"
+Get-ChildItem -LiteralPath $coversDir -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'nostalgiaconsole*.png' -or $_.Name -like 'greenblade*.png' } | Remove-Item -Force
+$coverPath = Join-Path $coversDir "nostalgiaconsole-$tag.png"
 Copy-Item -LiteralPath $coverSrc -Destination $coverPath -Force
 
-# 4. Add (or replace) the Greenblade app.
+# 4. Add (or replace) the NostalgiaConsole app.
 $json = if (Test-Path -LiteralPath $appsFile) { Get-Content -Raw -LiteralPath $appsFile | ConvertFrom-Json } else { [pscustomobject]@{ env = @{}; apps = @() } }
 $backup = "$appsFile.bak-" + (Get-Date -Format 'yyyyMMdd-HHmmss')
 if (Test-Path -LiteralPath $appsFile) { Copy-Item -LiteralPath $appsFile -Destination $backup }
-$apps = @($json.apps | Where-Object { $_.name -ne 'Greenblade' })
+$apps = @($json.apps | Where-Object { $_.name -ne 'NostalgiaConsole' -and $_.name -ne 'Greenblade' })
 $apps += [pscustomobject]@{
-  'name'           = 'Greenblade'
+  'name'           = 'NostalgiaConsole'
   'cmd'            = "`"$exe`""
   'image-path'     = $coverPath
   'auto-detach'    = $true
@@ -117,7 +124,7 @@ $apps += [pscustomobject]@{
 $json.apps = $apps
 # Sunshine's parser does not want a BOM.
 [IO.File]::WriteAllText($appsFile, ($json | ConvertTo-Json -Depth 10), (New-Object Text.UTF8Encoding($false)))
-Write-Host "Added Greenblade to Sunshine (backup: $backup)"
+Write-Host "Added NostalgiaConsole to Sunshine (backup: $backup)"
 
 # 5. Sunshine reads apps.json at start.
 if ($svc) {
@@ -126,4 +133,4 @@ if ($svc) {
 } else {
   Write-Host 'Restart Sunshine to pick up the new app'
 }
-Write-Host 'Done. In Moonlight, open the host to see Greenblade.'
+Write-Host 'Done. In Moonlight, open the host to see NostalgiaConsole.'

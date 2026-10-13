@@ -1,6 +1,6 @@
 {
-  "name": "greenblade",
-  "version": "0.2.0",
+  "name": "nostalgiaconsole",
+  "version": "0.3.0",
   "description": "An Xbox 360 NXE-style dashboard for your Steam library",
   "main": "src/main/main.js",
   "scripts": {
@@ -17,10 +17,10 @@
     "electron": "44.7.0",
     "electron-builder": "26.15.3"
   },
-  "productName": "Greenblade",
+  "productName": "NostalgiaConsole",
   "build": {
-    "appId": "io.github.ablatnick.greenblade",
-    "productName": "Greenblade",
+    "appId": "io.github.ablatnick.nostalgiaconsole",
+    "productName": "NostalgiaConsole",
     "files": [
       "src/**/*",
       "build/icon.png",

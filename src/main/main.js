@@ -29,7 +29,7 @@ const opts = {
 if (arg('user-data')) app.setPath('userData', path.resolve(arg('user-data')));
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'greenblade', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+  { scheme: 'nostalgia', privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ]);
 
 let win = null;
@@ -43,7 +43,7 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.json': 'application/json',
 };
-const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' greenblade: data:; media-src 'self'; font-src 'self'; connect-src 'self'";
+const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' nostalgia: data:; media-src 'self'; font-src 'self'; connect-src 'self'";
 
 function avatarFile(id64) {
   return path.join(app.getPath('userData'), 'avatars', id64 + '.jpg');
@@ -169,7 +169,7 @@ function createWindow() {
     show: !opts.capture,
     backgroundColor: '#dfe3e6',
     autoHideMenuBar: true,
-    title: 'Greenblade',
+    title: 'NostalgiaConsole',
     icon: path.join(__dirname, '..', '..', 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
@@ -185,7 +185,7 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.on('focus', () => refreshSoon());
-  win.loadURL('greenblade://ui/index.html' + (opts.capture ? '?capture=1' + (arg('intro') ? '&intro=1' : '') : ''));
+  win.loadURL('nostalgia://ui/index.html' + (opts.capture ? '?capture=1' + (arg('intro') ? '&intro=1' : '') : ''));
   if (opts.capture) runCapture();
 }
 
@@ -247,9 +247,22 @@ ipcMain.handle('window:fullscreen', () => {
 ipcMain.handle('app:quit', () => app.quit());
 ipcMain.handle('app:info', () => ({ version: app.getVersion(), capture: !!opts.capture }));
 
+// The app used to be called Greenblade; carry its settings (and the avatar
+// saved in them) over the first time NostalgiaConsole starts.
+function migrateOldSettings() {
+  const dest = path.join(app.getPath('userData'), 'settings.json');
+  const old = path.join(app.getPath('appData'), 'Greenblade', 'settings.json');
+  if (opts.capture || fs.existsSync(dest) || !fs.existsSync(old)) return;
+  try {
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.copyFileSync(old, dest);
+  } catch { /* start fresh */ }
+}
+
 app.whenReady().then(() => {
+  migrateOldSettings();
   settings = new Settings(app.getPath('userData'));
-  protocol.handle('greenblade', serve);
+  protocol.handle('nostalgia', serve);
   refresh(false);
   createWindow();
   fetchAvatar();

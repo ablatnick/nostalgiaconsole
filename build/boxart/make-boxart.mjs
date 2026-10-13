@@ -1,4 +1,4 @@
-// Renders build/boxart/greenblade-boxart.png (600x800), the cover Sunshine
+// Renders build/boxart/nostalgiaconsole-boxart.png (600x800), the cover Sunshine
 // shows in Moonlight: a game-case look with a green header band and a
 // dashboard scene below. Needs google-chrome (headless).
 //   node build/boxart/make-boxart.mjs
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { avatarSvg } from '../../src/renderer/avatar.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const orb = readFileSync(join(here, '..', 'icon.svg'), 'utf8').replace(/<\?xml[^>]*>/, '');
+const orb = readFileSync(join(here, '..', '..', 'src', 'renderer', 'logo.svg'), 'utf8').replace(/<\?xml[^>]*>/, '');
 
 const tiles = [
   ['#6cbf24', '#3f8f0e', 0], ['#2c8fd6', '#155988', 1], ['#e0632a', '#93330b', 2], ['#7d58c6', '#46297f', 3], ['#1aa3a3', '#0d6464', 4],
@@ -31,11 +31,11 @@ body{font-family:"Segoe UI","Noto Sans","Ubuntu",sans-serif;position:relative}
   box-shadow:0 3px 0 rgba(255,255,255,.55),0 8px 18px rgba(0,0,0,.45)}
 .band::before{content:"";position:absolute;left:0;right:0;top:0;height:44%;background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,.08))}
 .band::after{content:"";position:absolute;left:-10%;right:-10%;top:58%;height:22px;border-radius:50%;border-top:2px solid rgba(255,255,255,.55)}
-.band .orb{position:absolute;left:22px;top:11px;width:64px;height:64px;filter:drop-shadow(0 3px 5px rgba(0,0,0,.35))}
+.band .orb{position:absolute;left:14px;top:4px;width:78px;height:78px;filter:drop-shadow(0 3px 5px rgba(0,0,0,.35))}
 .band .orb svg{width:100%;height:100%}
-.band .name{position:absolute;left:100px;top:15px;color:#fff;font-size:42px;font-weight:300;letter-spacing:1px;text-shadow:0 2px 4px rgba(0,0,0,.35)}
-.band .name b{font-weight:700}
-.band .tag{position:absolute;right:22px;top:30px;color:#fff;font-size:15px;font-weight:600;letter-spacing:3px;opacity:.95;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+.band .name{position:absolute;left:104px;top:20px;color:#fff;font-size:36px;font-weight:300;letter-spacing:2px;text-shadow:0 2px 4px rgba(0,0,0,.35)}
+.band .name b{font-weight:600}
+.band .tag{position:absolute;right:18px;top:33px;color:#fff;font-size:15px;font-weight:600;letter-spacing:3px;opacity:.95;text-shadow:0 1px 3px rgba(0,0,0,.35)}
 .art{position:absolute;left:0;right:0;top:86px;bottom:0;
   background:radial-gradient(90% 60% at 30% 28%,#ffffff 0%,#e6ebed 45%,#b8c3c9 100%)}
 .glow{position:absolute;border-radius:50%;filter:blur(40px)}
@@ -52,15 +52,15 @@ svg.rib{position:absolute;left:0;top:0}
 .cap b{display:block;font-size:20px}.cap span{font-size:14px;color:#6a757c}
 .avatar{position:absolute;right:30px;top:268px;width:150px;height:300px;z-index:20}
 .avatar svg{width:100%;height:100%}
-.logo{position:absolute;left:0;right:0;bottom:84px;text-align:center;font-size:72px;font-weight:300;letter-spacing:-2px;color:#3d464c;text-shadow:0 2px 0 rgba(255,255,255,.6)}
-.logo b{font-weight:700;color:#4f9a15}
+.logo{position:absolute;left:0;right:0;bottom:88px;text-align:center;font-size:50px;font-weight:300;letter-spacing:2px;color:#8a9196;text-shadow:0 2px 0 rgba(255,255,255,.6)}
+.logo b{font-weight:300;color:#5cb31d}
 .sub{position:absolute;left:0;right:0;bottom:50px;text-align:center;font-size:18px;color:#5a666d;letter-spacing:.5px}
 .hint{position:absolute;left:36px;bottom:14px;display:flex;gap:16px;font-size:13px;color:#5a666d}
 .hint span{display:flex;align-items:center;gap:6px}
 .hint em{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;color:#fff;font-style:normal;font-weight:700;font-size:11px;
   box-shadow:inset 0 -2px 3px rgba(0,0,0,.35),inset 0 2px 2px rgba(255,255,255,.55)}
 </style></head><body><div class="case">
-<div class="band"><div class="orb">${orb}</div><div class="name">green<b>blade</b></div><div class="tag">DASHBOARD</div></div>
+<div class="band"><div class="orb">${orb}</div><div class="name"><b>NOSTALGIA</b>CONSOLE</div></div>
 <div class="art">
   <div class="glow g1"></div><div class="glow g2"></div>
   <svg class="rib" width="600" height="714" viewBox="0 0 600 714">
@@ -73,7 +73,7 @@ svg.rib{position:absolute;left:0;top:0}
   <div class="row">${tiles}</div>
   <div class="cap"><b>your games</b><span>steam · non-steam · moonlight</span></div>
   <div class="avatar">${avatarSvg({ hat: 'headphones', hatColor: '#2b2f33' })}</div>
-  <div class="logo">green<b>blade</b></div>
+  <div class="logo"><b>NOSTALGIA</b>CONSOLE</div>
   <div class="sub">the dashboard for your steam library</div>
   <div class="hint"><span><em style="background:#5dbb1f">A</em>play</span><span><em style="background:#e0262c">B</em>back</span><span><em style="background:#f0b000">Y</em>pin</span></div>
 </div></div></body></html>`;
@@ -81,5 +81,5 @@ svg.rib{position:absolute;left:0;top:0}
 const htmlFile = join(here, 'boxart.html');
 writeFileSync(htmlFile, html);
 execFileSync('google-chrome', ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--window-size=600,800',
-  `--screenshot=${join(here, 'greenblade-boxart.png')}`, `file://${htmlFile}`], { stdio: 'ignore' });
-console.log('wrote', join(here, 'greenblade-boxart.png'));
+  `--screenshot=${join(here, 'nostalgiaconsole-boxart.png')}`, `file://${htmlFile}`], { stdio: 'ignore' });
+console.log('wrote', join(here, 'nostalgiaconsole-boxart.png'));

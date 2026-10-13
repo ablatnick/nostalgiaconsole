@@ -168,52 +168,62 @@ function hat(l) {
   }
 }
 
+// Body parts use 360-style proportions: the head (drawn at its own scale
+// and shrunk into place) is about a quarter of the height.
+const CYL = '<path d="__D__" fill="url(#av-cyl)"/>';
+const shaded = (d, fill) => `<path d="${d}" fill="${fill}"/>` + CYL.replace('__D__', d);
+
 function torso(l) {
   const c = l.topColor;
-  const base = `<path d="M64 196 Q66 180 84 176 L116 176 Q134 180 136 196 L132 292 Q100 300 68 292 Z" fill="${c}"/><path d="M64 196 Q66 180 84 176 L116 176 Q134 180 136 196 L132 292 Q100 300 68 292 Z" fill="url(#av-top)"/>`;
-  const logo = `<circle cx="100" cy="228" r="14" fill="#fff" fill-opacity=".92"/><circle cx="100" cy="228" r="9.5" fill="${c}"/><path d="M92 230 Q100 225 108 228" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-opacity=".85"/>`;
+  const T = 'M66 132 Q68 118 86 116 L114 116 Q132 118 134 132 L128 230 Q100 236 72 230 Z';
+  const base = shaded(T, c);
+  const logo = `<circle cx="100" cy="160" r="11" fill="#fff" fill-opacity=".92"/><circle cx="100" cy="160" r="7.5" fill="${c}"/><path d="M94 162 Q100 158 106 160" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-opacity=".85"/>`;
   switch (l.top) {
-    case 'tee': return `${base}<path d="M86 176 Q100 192 114 176" fill="none" stroke="#000" stroke-opacity=".2" stroke-width="3"/>${logo}`;
-    case 'jacket': return `${base}<path d="M100 186 V292" stroke="${shade(c, -0.25)}" stroke-width="3"/><path d="M84 176 L100 200 L92 214 L76 186Z M116 176 L100 200 L108 214 L124 186Z" fill="${shade(c, -0.12)}"/><rect x="72" y="244" width="18" height="12" rx="2" fill="${shade(c, -0.15)}"/><rect x="110" y="244" width="18" height="12" rx="2" fill="${shade(c, -0.15)}"/>`;
-    case 'jersey': return `${base}<path d="M86 176 L100 196 L114 176" fill="none" stroke="#fff" stroke-width="4"/><text x="100" y="252" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="36" fill="#fff" fill-opacity=".92">08</text>`;
-    case 'sweater': return `${base}${[214, 238, 262].map((y) => `<rect x="66" y="${y}" width="68" height="8" fill="${shade(c, 0.18)}"/>`).join('')}<path d="M86 176 Q100 194 114 176" fill="none" stroke="${shade(c, -0.2)}" stroke-width="6"/>`;
-    default: return `<path d="M76 178 Q100 206 124 178 Q120 168 100 168 Q80 168 76 178Z" fill="${shade(c, -0.12)}"/>${base}<path d="M86 176 Q100 196 114 176" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/>${logo}<path d="M94 196 L92 214 M106 196 L108 214" stroke="#fff" stroke-opacity=".8" stroke-width="2"/>`;
+    case 'tee': return `${base}<path d="M88 116 Q100 130 112 116" fill="none" stroke="#000" stroke-opacity=".2" stroke-width="2.5"/>${logo}`;
+    case 'jacket': return `${base}<path d="M100 124 V230" stroke="${shade(c, -0.25)}" stroke-width="2.5"/><path d="M86 116 L100 136 L94 148 L80 124Z M114 116 L100 136 L106 148 L120 124Z" fill="${shade(c, -0.12)}"/><rect x="76" y="186" width="15" height="10" rx="2" fill="${shade(c, -0.15)}"/><rect x="109" y="186" width="15" height="10" rx="2" fill="${shade(c, -0.15)}"/>`;
+    case 'jersey': return `${base}<path d="M88 116 L100 132 L112 116" fill="none" stroke="#fff" stroke-width="3.5"/><text x="100" y="186" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="30" fill="#fff" fill-opacity=".92">08</text>`;
+    case 'sweater': return `${base}${[150, 172, 194].map((y) => `<rect x="68" y="${y}" width="64" height="7" fill="${shade(c, 0.18)}"/>`).join('')}<path d="M88 116 Q100 130 112 116" fill="none" stroke="${shade(c, -0.2)}" stroke-width="5"/>`;
+    default: return `<path d="M78 120 Q100 142 122 120 Q118 110 100 110 Q82 110 78 120Z" fill="${shade(c, -0.12)}"/>${base}<path d="M88 116 Q100 132 112 116" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="2.5"/>${logo}<path d="M95 130 L93 146 M105 130 L107 146" stroke="#fff" stroke-opacity=".8" stroke-width="1.8"/>`;
   }
 }
 
 function arms(l) {
   const c = l.topColor;
   const short = l.top === 'tee' || l.top === 'jersey';
-  const sleeveL = short ? 'M68 190 Q52 196 50 226 L64 228 L66 210Z' : 'M68 190 Q52 196 50 226 L48 270 Q48 278 56 278 Q62 278 62 270 L66 230 Z';
-  const sleeveR = short ? 'M132 190 Q148 196 150 226 L136 228 L134 210Z' : 'M132 190 Q148 196 150 226 L152 270 Q152 278 144 278 Q138 278 138 270 L134 230 Z';
-  const foreL = short ? `<path d="M50 224 L48 270 Q48 278 56 278 Q62 278 62 270 L64 226Z" fill="${l.skin}"/>` : '';
-  const foreR = short ? `<path d="M150 224 L152 270 Q152 278 144 278 Q138 278 138 270 L136 226Z" fill="${l.skin}"/>` : '';
-  return `<g class="av-arm-l">${foreL}<path d="${sleeveL}" fill="${c}"/><circle cx="55" cy="282" r="10" fill="${l.skin}"/></g>`
-    + `<g class="av-arm-r">${foreR}<path d="${sleeveR}" fill="${c}"/><circle cx="145" cy="282" r="10" fill="${l.skin}"/></g>`;
+  const longL = 'M70 122 Q56 126 54 150 L52 226 Q52 234 60 234 Q66 234 66 226 L68 152 Z';
+  const longR = 'M130 122 Q144 126 146 150 L148 226 Q148 234 140 234 Q134 234 134 226 L132 152 Z';
+  const shortL = 'M70 122 Q56 126 54 150 L54 164 L68 164 L68 150 Z';
+  const shortR = 'M130 122 Q144 126 146 150 L146 164 L132 164 L132 150 Z';
+  const foreL = 'M54 160 L52 226 Q52 234 60 234 Q66 234 66 226 L68 160 Z';
+  const foreR = 'M146 160 L148 226 Q148 234 140 234 Q134 234 134 226 L132 160 Z';
+  const side = (sleeve, fore, hx) => (short ? shaded(fore, l.skin) : '') + shaded(sleeve, c) + `<circle cx="${hx}" cy="240" r="8.5" fill="${l.skin}"/>`;
+  return `<g class="av-arm-l">${side(short ? shortL : longL, foreL, 59)}</g><g class="av-arm-r">${side(short ? shortR : longR, foreR, 141)}</g>`;
 }
 
 function legs(l) {
   const c = l.bottomsColor;
-  const skinLegs = `<path d="M78 300 L74 372 L94 372 L97 300Z M122 300 L126 372 L106 372 L103 300Z" fill="${l.skin}"/>`;
-  const pants = `<path d="M78 286 L74 372 Q74 378 80 378 L94 378 L97 300 Z" fill="${c}"/><path d="M122 286 L126 372 Q126 378 120 378 L106 378 L103 300 Z" fill="${c}"/><path d="M76 286 L124 286 L124 300 L76 300 Z" fill="${c}"/>`;
+  const legL = 'M74 226 L72 370 Q72 376 78 376 L96 376 L99 244 Z';
+  const legR = 'M126 226 L128 370 Q128 376 122 376 L104 376 L101 244 Z';
+  const skin = shaded('M76 250 L74 372 L96 372 L99 250 Z', l.skin) + shaded('M124 250 L126 372 L104 372 L101 250 Z', l.skin);
+  const pants = shaded(legL, c) + shaded(legR, c) + `<path d="M73 224 L127 224 L127 246 L73 246 Z" fill="${c}"/>`;
   switch (l.bottoms) {
-    case 'cargo': return `${pants}<rect x="72" y="318" width="16" height="20" rx="2" fill="${shade(c, -0.14)}"/><rect x="112" y="318" width="16" height="20" rx="2" fill="${shade(c, -0.14)}"/>`;
-    case 'shorts': return `${skinLegs}<path d="M76 286 L124 286 L127 336 L104 338 L100 312 L96 338 L73 336Z" fill="${c}"/>`;
-    case 'skirt': return `${skinLegs}<path d="M76 286 L124 286 L136 340 Q100 350 64 340Z" fill="${c}"/>`;
-    default: return `${pants}<path d="M100 300 V312" stroke="${shade(c, -0.2)}" stroke-width="2"/>`;
+    case 'cargo': return `${pants}<rect x="70" y="276" width="14" height="18" rx="2" fill="${shade(c, -0.14)}"/><rect x="116" y="276" width="14" height="18" rx="2" fill="${shade(c, -0.14)}"/>`;
+    case 'shorts': return `${skin}${shaded('M73 224 L127 224 L130 292 L104 294 L100 262 L96 294 L70 292 Z', c)}`;
+    case 'skirt': return `${skin}${shaded('M73 224 L127 224 L140 300 Q100 312 60 300 Z', c)}`;
+    default: return `${pants}<path d="M100 244 V256" stroke="${shade(c, -0.2)}" stroke-width="2"/>`;
   }
 }
 
 function shoes(l) {
   const c = l.shoes;
   const edge = c === '#f4f4f4' ? '#cfd4d7' : shade(c, -0.2);
-  return `<path d="M66 372 Q66 386 80 388 L98 388 Q100 376 94 370 L76 370 Q68 370 66 372Z" fill="${c}" stroke="${edge}" stroke-width="1.5"/>`
-    + `<path d="M134 372 Q134 386 120 388 L102 388 Q100 376 106 370 L124 370 Q132 370 134 372Z" fill="${c}" stroke="${edge}" stroke-width="1.5"/>`;
+  return `<path d="M64 376 Q64 390 78 392 L98 392 Q100 380 95 374 L76 374 Q66 374 64 376Z" fill="${c}" stroke="${edge}" stroke-width="1.5"/>`
+    + `<path d="M136 376 Q136 390 122 392 L102 392 Q100 380 105 374 L124 374 Q134 374 136 376Z" fill="${c}" stroke="${edge}" stroke-width="1.5"/>`;
 }
 
 const BUILD = { slim: 0.8, regular: 1, broad: 1.24 };
 export const VIEW_FULL = '0 0 200 400';
-export const VIEW_HEAD = '20 -14 160 200';
+export const VIEW_HEAD = '44 -8 112 128';
 
 export function avatarSvg(input = {}, { viewBox = VIEW_FULL, cls = 'avatar-svg' } = {}) {
   const l = normalizeLook(input);
@@ -224,15 +234,16 @@ export function avatarSvg(input = {}, { viewBox = VIEW_FULL, cls = 'avatar-svg' 
   <defs>
     <radialGradient id="av-skin" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity=".12"/></radialGradient>
     <linearGradient id="av-top" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity=".2"/></linearGradient>
+    <linearGradient id="av-cyl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".26"/><stop offset=".32" stop-color="#fff" stop-opacity=".16"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient>
     <radialGradient id="av-shadow"><stop offset="0" stop-color="#000" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
   </defs>
-  <ellipse cx="100" cy="392" rx="${62 * bx}" ry="9" fill="url(#av-shadow)"/>
+  <ellipse cx="100" cy="394" rx="${58 * bx}" ry="8" fill="url(#av-shadow)"/>
   <g class="av-body">
     ${widen(legs(l))}
     ${shoes(l)}
     ${widen(torso(l) + arms(l))}
-    <rect x="91" y="160" width="18" height="22" rx="6" fill="${l.skin}"/>
-    <g class="av-head">
+    <rect x="92" y="100" width="16" height="22" rx="5" fill="${l.skin}"/>
+    <g transform="translate(100 116) scale(.7) translate(-100 -166)"><g class="av-head">
       ${hairBack(l)}
       <ellipse cx="46" cy="104" rx="9" ry="13" fill="${l.skin}"/>
       <ellipse cx="154" cy="104" rx="9" ry="13" fill="${l.skin}"/>
@@ -248,7 +259,7 @@ export function avatarSvg(input = {}, { viewBox = VIEW_FULL, cls = 'avatar-svg' 
       <ellipse cx="132" cy="124" rx="8" ry="5" fill="#f08a8a" fill-opacity=".3"/>
       ${glasses(l)}
       ${hat(l)}
-    </g>
+    </g></g>
   </g>
 </svg>`;
 }

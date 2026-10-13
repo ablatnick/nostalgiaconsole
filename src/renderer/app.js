@@ -3,7 +3,7 @@ import * as sound from './sound.js';
 import { icon } from './icons.js';
 import { avatarSvg, PARTS, VIEW_HEAD, VIEW_FULL, normalizeLook, randomLook } from './avatar.js';
 
-const api = window.greenblade;
+const api = window.nostalgia;
 const params = new URLSearchParams(location.search);
 const CAPTURE = params.has('capture');
 
@@ -45,8 +45,8 @@ function esc(s) {
 }
 
 function artUrl(item, kind) {
-  if (item.kind === 'moonlight') return `greenblade://art/moonlight/${item.host}/${item.appid}`;
-  return `greenblade://art/${item.kind}/${item.appid}/${kind}`;
+  if (item.kind === 'moonlight') return `nostalgia://art/moonlight/${item.host}/${item.appid}`;
+  return `nostalgia://art/${item.kind}/${item.appid}/${kind}`;
 }
 
 function timeAgo(sec) {
@@ -122,7 +122,7 @@ function notify(title, msg, { img = null, ms = 3800, chime = true } = {}) {
   const t = $('#toast');
   t.classList.remove('show');
   void t.offsetWidth;
-  const ring = img ? `<img alt="" src="${esc(img)}">` : icon('controller');
+  const ring = img ? `<img alt="" src="${esc(img)}">` : '<img class="n-logo" alt="" src="logo.svg">';
   t.innerHTML = `<div class="n-ring">${ring}</div><div class="n-text"><small>${esc(title)}</small><b>${esc(msg)}</b></div>`;
   const pic = t.querySelector('img');
   if (pic) pic.onerror = () => { pic.replaceWith(document.createRange().createContextualFragment(icon('controller'))); };
@@ -133,7 +133,7 @@ function notify(title, msg, { img = null, ms = 3800, chime = true } = {}) {
 }
 
 function toast(msg) {
-  notify('greenblade', msg, { chime: false, ms: 2800 });
+  notify('nostalgiaconsole', msg, { chime: false, ms: 2800 });
 }
 
 // ---------- data ----------
@@ -231,13 +231,13 @@ function settingTiles() {
     { key: 'set:avatar-show', type: 'icon', icon: 'user', label: 'avatar on spotlight', value: onoff(s.avatar), title: 'show avatar', sub: 'your avatar stands on the spotlight channel', colors: ['#5aa51e', '#2f6f0c'], activate: set({ avatar: !s.avatar }) },
     { key: 'set:sound', type: 'icon', icon: s.sound ? 'sound' : 'mute', label: 'sounds', value: onoff(s.sound), title: 'interface sounds', sub: 'blips and swooshes while you browse', colors: ['#2c8fd6', '#155988'], activate: set({ sound: !s.sound }) },
     { key: 'set:volume', type: 'icon', icon: 'volume', label: 'volume', value: `${s.volume}%`, title: 'sound volume', sub: 'loudness of the interface sounds', colors: ['#1aa3a3', '#0d6464'], activate: set({ volume: VOLUMES[(VOLUMES.indexOf(s.volume) + 1) % VOLUMES.length] || 60 }) },
-    { key: 'set:intro', type: 'icon', icon: 'sparkle', label: 'startup intro', value: onoff(s.intro), title: 'startup intro', sub: 'play the boot animation when greenblade opens', colors: ['#d9a400', '#8d6900'], activate: set({ intro: !s.intro }) },
+    { key: 'set:intro', type: 'icon', icon: 'sparkle', label: 'startup intro', value: onoff(s.intro), title: 'startup intro', sub: 'play the boot animation when nostalgiaconsole opens', colors: ['#d9a400', '#8d6900'], activate: set({ intro: !s.intro }) },
     { key: 'set:fullscreen', type: 'icon', icon: 'fullscreen', label: 'full screen', value: onoff(s.fullscreen), title: 'full screen', sub: 'start in full screen (F11 switches any time)', colors: ['#4c6b80', '#28404f'],
       activate: async () => {
         const fs = await api.toggleFullscreen();
         await set({ fullscreen: fs })();
       } },
-    { key: 'set:after', type: 'icon', icon: 'rocket', label: 'after launch', value: s.afterLaunch, title: 'after a game starts', sub: 'stay open, minimize, or close greenblade', colors: ['#e0632a', '#93330b'], activate: set({ afterLaunch: next(AFTER_LAUNCH, s.afterLaunch) }) },
+    { key: 'set:after', type: 'icon', icon: 'rocket', label: 'after launch', value: s.afterLaunch, title: 'after a game starts', sub: 'stay open, minimize, or close nostalgiaconsole', colors: ['#e0632a', '#93330b'], activate: set({ afterLaunch: next(AFTER_LAUNCH, s.afterLaunch) }) },
     { key: 'set:tools', type: 'icon', icon: 'wrench', label: 'steam tools', value: s.showTools ? 'shown' : 'hidden', title: 'steam tools', sub: `proton, runtimes and redistributables (${state.lib.tools.length} installed)`, colors: ['#6d7a84', '#3d474e'], activate: set({ showTools: !s.showTools }) },
     { key: 'set:moonlight', type: 'icon', icon: 'stream', label: 'moonlight', value: onoff(s.moonlight), title: 'moonlight streaming', sub: (state.lib.moonlight && state.lib.moonlight.installed) ? 'show apps from your paired moonlight hosts' : 'moonlight is not installed on this device', colors: ['#4b3fa0', '#221a5c'], activate: set({ moonlight: !s.moonlight }) },
     { key: 'set:avatar', type: 'icon', icon: 'user', label: 'profile picture', value: onoff(s.communityAvatar), title: 'profile picture', sub: 'use your steam community avatar (public profiles)', colors: ['#3a9d55', '#1d5e2f'], activate: set({ communityAvatar: !s.communityAvatar }) },
@@ -247,7 +247,7 @@ function settingTiles() {
         rebuild();
         toast(`library refreshed · ${state.all.length} games`);
       } },
-    { key: 'set:quit', type: 'icon', icon: 'power', label: 'quit', value: '', title: 'quit greenblade', sub: state.lib.steamDeck ? 'back to steam' : 'close the dashboard', colors: ['#c4282d', '#7a1115'], activate: () => api.quit() },
+    { key: 'set:quit', type: 'icon', icon: 'power', label: 'quit', value: '', title: 'quit nostalgiaconsole', sub: state.lib.steamDeck ? 'back to steam' : 'close the dashboard', colors: ['#c4282d', '#7a1115'], activate: () => api.quit() },
   ];
 }
 
@@ -287,7 +287,7 @@ function buildChannels() {
     spotTiles.push({
       key: 'empty', type: 'icon', icon: 'controller', label: 'no games yet', value: '',
       title: lib.root ? 'no installed games found' : 'steam was not found',
-      sub: lib.root ? 'install a game in steam and it shows up here' : 'install steam, or start greenblade with --steam-root=<folder>',
+      sub: lib.root ? 'install a game in steam and it shows up here' : 'install steam, or start nostalgiaconsole with --steam-root=<folder>',
       colors: ['#6d7a84', '#3d474e'], activate: () => openSteam('storefront'),
     });
   }
@@ -628,7 +628,7 @@ function fillGamerpic(box, user) {
   if (user && user.avatar) {
     const img = new Image();
     img.alt = '';
-    img.src = `greenblade://art/avatar/${user.steamId64}/img?v=${state.avatarStamp}`;
+    img.src = `nostalgia://art/avatar/${user.steamId64}/img?v=${state.avatarStamp}`;
     img.onerror = () => { box.innerHTML = avatarSvg(look(), { viewBox: VIEW_HEAD, cls: 'gamerpic-av' }); };
     box.append(img);
   } else {
@@ -862,7 +862,7 @@ function openGuide() {
   root.querySelector('.scrim').addEventListener('click', () => popOverlay());
   const panel = el('div', 'guide-panel');
   root.append(panel);
-  panel.append(el('div', 'guide-orb', '<i></i>'));
+  panel.append(el('div', 'guide-orb'));
   const tabsEl = el('div', 'guide-tabs');
   panel.append(tabsEl);
   const card = el('div', 'guide-card');
@@ -887,7 +887,7 @@ function openGuide() {
       { icon: 'user', label: 'my avatar', run: () => { closeAll(); openAvatarEditor(); } },
       { icon: 'bigpicture', label: 'steam big picture', run: () => { closeAll(); openSteam('bigpicture'); } },
       { icon: 'fullscreen', label: 'toggle full screen', run: () => api.toggleFullscreen() },
-      { icon: 'power', label: 'quit greenblade', run: () => api.quit() },
+      { icon: 'power', label: 'quit nostalgiaconsole', run: () => api.quit() },
     ] },
     { icon: 'play', label: 'games', items: () => [
       ...recent.map((g) => ({ icon: 'play', label: g.name, note: timeAgo(g.lastPlayed).replace('played ', ''), run: () => { closeAll(); launch(g); } })),

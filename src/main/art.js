@@ -83,7 +83,7 @@ class ArtResolver {
     return found;
   }
 
-  // Returns a Response for greenblade://art/<source>/<appid>/<kind>.
+  // Returns a Response for nostalgia://art/<source>/<appid>/<kind>.
   async respond(source, appid, kind) {
     const local = this.localPath(source, appid, kind);
     if (local) {

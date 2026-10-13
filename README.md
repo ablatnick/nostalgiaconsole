@@ -1,4 +1,4 @@
-# Greenblade
+# NostalgiaConsole
 
 A full-screen dashboard in the style of the 2008 "New Xbox Experience" for
 your Steam library. It runs on Linux, Windows and the Steam Deck, and it
@@ -26,7 +26,7 @@ also lists games you can stream from other PCs with Moonlight.
   while a game or stream window has focus.
 
 Games start through Steam (`steam://rungameid/...`), so Steam has to be
-installed and logged in. Greenblade never opens any other URL.
+installed and logged in. NostalgiaConsole never opens any other URL.
 
 ## Controls
 
@@ -45,35 +45,35 @@ installed and logged in. Greenblade never opens any other URL.
 
 Download the file for your system from `dist/` (or a release):
 
-- **Linux / Steam Deck**: `Greenblade-<version>.AppImage`. Make it executable
+- **Linux / Steam Deck**: `NostalgiaConsole-<version>.AppImage`. Make it executable
   and run it.
-- **Windows**: `Greenblade Setup <version>.exe` (installer) or
-  `Greenblade-<version>-portable.exe`.
+- **Windows**: `NostalgiaConsole Setup <version>.exe` (installer) or
+  `NostalgiaConsole-<version>-portable.exe`.
 
 ### Steam Deck / Big Picture
 
 1. In Desktop Mode, put the AppImage somewhere permanent, for example
    `~/Applications/`.
 2. In Steam, choose **Games > Add a Non-Steam Game** and pick the AppImage.
-3. Back in Game Mode, start Greenblade from your library. Games you launch
+3. Back in Game Mode, start NostalgiaConsole from your library. Games you launch
    from it open on top of it, and you return to it when they exit.
 
-Set **after launch** to `close` in settings if you'd rather Greenblade quit
+Set **after launch** to `close` in settings if you'd rather NostalgiaConsole quit
 when a game starts.
 
 ### Moonlight
 
-Install Moonlight (moonlight-qt) and pair your hosts in it once. Greenblade
+Install Moonlight (moonlight-qt) and pair your hosts in it once. NostalgiaConsole
 reads the paired hosts from Moonlight's settings and asks each host for its
 apps (`moonlight list`). Selecting a tile runs
 `moonlight stream <host> <app>`. To stream single games instead of the
-whole desktop, add them as apps in Sunshine. A neat trick: add Greenblade
+whole desktop, add them as apps in Sunshine. A neat trick: add NostalgiaConsole
 itself as a Sunshine app on your gaming PC, so streaming it from a TV gives
 you the whole dashboard.
 
 On a Windows Sunshine host, `scripts/add-to-sunshine.ps1` installs
-Greenblade and adds it as a Sunshine app with its own game-case style cover
-(`build/boxart/greenblade-boxart.png`, made by `node build/boxart/make-boxart.mjs`),
+NostalgiaConsole and adds it as a Sunshine app with its own game-case style cover
+(`build/boxart/nostalgiaconsole-boxart.png`, made by `node build/boxart/make-boxart.mjs`),
 so it shows up in Moonlight next to Desktop and Steam Big Picture:
 
 ```powershell
@@ -87,10 +87,10 @@ Windows and macOS. Set `MOONLIGHT_BIN` to override.
 ## Options
 
 - `--steam-root=<folder>` or `STEAM_ROOT`: use this Steam folder. By default
-  Greenblade looks in the usual native, Flatpak, snap and Windows locations.
+  NostalgiaConsole looks in the usual native, Flatpak, snap and Windows locations.
 - `--windowed`: start in a window.
 - Settings are saved in `settings.json` in the app's user data folder
-  (`~/.config/Greenblade` on Linux, `%APPDATA%\Greenblade` on Windows).
+  (`~/.config/NostalgiaConsole` on Linux, `%APPDATA%\NostalgiaConsole` on Windows).
 
 ## Develop
 
@@ -110,5 +110,5 @@ On Linux the AppImage starts Electron with `--no-sandbox`. Ubuntu 24.04+
 blocks the Chromium sandbox for AppImages. The UI only loads its own bundled
 files through a locked-down custom protocol, with a strict CSP.
 
-Greenblade is a fan project. It isn't affiliated with Microsoft, Xbox,
+NostalgiaConsole is a fan project. It isn't affiliated with Microsoft, Xbox,
 Valve or the Moonlight project, and it ships no assets from them.

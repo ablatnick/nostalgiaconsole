@@ -7,11 +7,11 @@ body{font-family:"Segoe UI","Noto Sans","Ubuntu",sans-serif;position:relative}
   box-shadow:0 3px 0 rgba(255,255,255,.55),0 8px 18px rgba(0,0,0,.45)}
 .band::before{content:"";position:absolute;left:0;right:0;top:0;height:44%;background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,.08))}
 .band::after{content:"";position:absolute;left:-10%;right:-10%;top:58%;height:22px;border-radius:50%;border-top:2px solid rgba(255,255,255,.55)}
-.band .orb{position:absolute;left:22px;top:11px;width:64px;height:64px;filter:drop-shadow(0 3px 5px rgba(0,0,0,.35))}
+.band .orb{position:absolute;left:14px;top:4px;width:78px;height:78px;filter:drop-shadow(0 3px 5px rgba(0,0,0,.35))}
 .band .orb svg{width:100%;height:100%}
-.band .name{position:absolute;left:100px;top:15px;color:#fff;font-size:42px;font-weight:300;letter-spacing:1px;text-shadow:0 2px 4px rgba(0,0,0,.35)}
-.band .name b{font-weight:700}
-.band .tag{position:absolute;right:22px;top:30px;color:#fff;font-size:15px;font-weight:600;letter-spacing:3px;opacity:.95;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+.band .name{position:absolute;left:104px;top:20px;color:#fff;font-size:36px;font-weight:300;letter-spacing:2px;text-shadow:0 2px 4px rgba(0,0,0,.35)}
+.band .name b{font-weight:600}
+.band .tag{position:absolute;right:18px;top:33px;color:#fff;font-size:15px;font-weight:600;letter-spacing:3px;opacity:.95;text-shadow:0 1px 3px rgba(0,0,0,.35)}
 .art{position:absolute;left:0;right:0;top:86px;bottom:0;
   background:radial-gradient(90% 60% at 30% 28%,#ffffff 0%,#e6ebed 45%,#b8c3c9 100%)}
 .glow{position:absolute;border-radius:50%;filter:blur(40px)}
@@ -28,8 +28,8 @@ svg.rib{position:absolute;left:0;top:0}
 .cap b{display:block;font-size:20px}.cap span{font-size:14px;color:#6a757c}
 .avatar{position:absolute;right:30px;top:268px;width:150px;height:300px;z-index:20}
 .avatar svg{width:100%;height:100%}
-.logo{position:absolute;left:0;right:0;bottom:84px;text-align:center;font-size:72px;font-weight:300;letter-spacing:-2px;color:#3d464c;text-shadow:0 2px 0 rgba(255,255,255,.6)}
-.logo b{font-weight:700;color:#4f9a15}
+.logo{position:absolute;left:0;right:0;bottom:88px;text-align:center;font-size:50px;font-weight:300;letter-spacing:2px;color:#8a9196;text-shadow:0 2px 0 rgba(255,255,255,.6)}
+.logo b{font-weight:300;color:#5cb31d}
 .sub{position:absolute;left:0;right:0;bottom:50px;text-align:center;font-size:18px;color:#5a666d;letter-spacing:.5px}
 .hint{position:absolute;left:36px;bottom:14px;display:flex;gap:16px;font-size:13px;color:#5a666d}
 .hint span{display:flex;align-items:center;gap:6px}
@@ -38,21 +38,72 @@ svg.rib{position:absolute;left:0;top:0}
 </style></head><body><div class="case">
 <div class="band"><div class="orb"><svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <defs>
-    <radialGradient id="o" cx="38%" cy="32%" r="70%">
-      <stop offset="0" stop-color="#eaffd2"/><stop offset=".32" stop-color="#9be04f"/>
-      <stop offset=".68" stop-color="#4fa516"/><stop offset="1" stop-color="#1f5a08"/>
+    <!-- chrome sphere -->
+    <radialGradient id="chrome" cx="36%" cy="28%" r="78%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".18" stop-color="#eef0f1"/>
+      <stop offset=".5" stop-color="#b9bec2"/>
+      <stop offset=".78" stop-color="#7d8489"/>
+      <stop offset="1" stop-color="#4a5054"/>
     </radialGradient>
-    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity=".85"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    <radialGradient id="rim" cx="50%" cy="50%" r="50%">
+      <stop offset=".86" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".35"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
     </linearGradient>
+    <!-- green band: bright core fading to deep green at the edges -->
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3f9a0c"/>
+      <stop offset=".35" stop-color="#8fe03a"/>
+      <stop offset=".5" stop-color="#d6ff9a"/>
+      <stop offset=".65" stop-color="#8fe03a"/>
+      <stop offset="1" stop-color="#2f7a07"/>
+    </linearGradient>
+    <linearGradient id="bandBack" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2f7a07" stop-opacity=".0"/>
+      <stop offset=".5" stop-color="#3f9a0c" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#2f7a07" stop-opacity=".0"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <clipPath id="ball"><circle cx="256" cy="256" r="196"/></clipPath>
   </defs>
-  <circle cx="256" cy="256" r="236" fill="url(#o)"/>
-  <path d="M120 300 C 200 250, 300 350, 400 270 L 400 300 C 300 380, 200 285, 120 330 Z" fill="#ffffff" opacity=".75"/>
-  <path d="M110 240 C 210 200, 300 290, 410 220 L 410 236 C 300 310, 210 222, 110 262 Z" fill="#d8ffb0" opacity=".55"/>
-  <ellipse cx="220" cy="150" rx="150" ry="80" fill="url(#s)"/>
-  <circle cx="256" cy="256" r="236" fill="none" stroke="#ffffff" stroke-opacity=".6" stroke-width="10"/>
+
+  <!-- ground shadow -->
+  <ellipse cx="256" cy="478" rx="150" ry="18" fill="#000" opacity=".22" filter="url(#soft)"/>
+
+  <!-- back half of the orbit, behind the sphere -->
+  <g transform="rotate(-24 256 256)">
+    <path d="M28 256 A228 70 0 0 1 484 256 L470 256 A214 56 0 0 0 42 256 Z" fill="url(#bandBack)"/>
+  </g>
+
+  <!-- sphere -->
+  <circle cx="256" cy="256" r="196" fill="url(#chrome)"/>
+  <circle cx="256" cy="256" r="196" fill="url(#rim)"/>
+  <!-- green light inside the sphere, under the band -->
+  <g clip-path="url(#ball)" opacity=".28">
+    <ellipse cx="256" cy="262" rx="210" ry="58" transform="rotate(-24 256 256)" fill="#7fd43a" filter="url(#soft)"/>
+  </g>
+
+  <!-- front half of the orbit, wrapping across the sphere -->
+  <g transform="rotate(-24 256 256)" filter="url(#glow)">
+    <path d="M12 256 A244 92 0 0 0 500 256 L466 256 A210 50 0 0 1 46 256 Z" fill="url(#band)"/>
+    <path d="M34 266 A222 70 0 0 0 478 266" fill="none" stroke="#f4ffe0" stroke-opacity=".9" stroke-width="5"/>
+  </g>
+
+  <!-- top gloss -->
+  <ellipse cx="226" cy="150" rx="118" ry="72" fill="url(#gloss)" opacity=".85"/>
+  <circle cx="256" cy="256" r="195" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="3"/>
 </svg>
-</div><div class="name">green<b>blade</b></div><div class="tag">DASHBOARD</div></div>
+</div><div class="name"><b>NOSTALGIA</b>CONSOLE</div></div>
 <div class="art">
   <div class="glow g1"></div><div class="glow g2"></div>
   <svg class="rib" width="600" height="714" viewBox="0 0 600 714">
@@ -69,15 +120,16 @@ svg.rib{position:absolute;left:0;top:0}
   <defs>
     <radialGradient id="av-skin" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity=".12"/></radialGradient>
     <linearGradient id="av-top" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".25"/><stop offset="1" stop-color="#000" stop-opacity=".2"/></linearGradient>
+    <linearGradient id="av-cyl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".26"/><stop offset=".32" stop-color="#fff" stop-opacity=".16"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient>
     <radialGradient id="av-shadow"><stop offset="0" stop-color="#000" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
   </defs>
-  <ellipse cx="100" cy="392" rx="62" ry="9" fill="url(#av-shadow)"/>
+  <ellipse cx="100" cy="394" rx="58" ry="8" fill="url(#av-shadow)"/>
   <g class="av-body">
-    <g transform="translate(100 0) scale(1 1) translate(-100 0)"><path d="M78 286 L74 372 Q74 378 80 378 L94 378 L97 300 Z" fill="#3a5a86"/><path d="M122 286 L126 372 Q126 378 120 378 L106 378 L103 300 Z" fill="#3a5a86"/><path d="M76 286 L124 286 L124 300 L76 300 Z" fill="#3a5a86"/><path d="M100 300 V312" stroke="#072753" stroke-width="2"/></g>
-    <path d="M66 372 Q66 386 80 388 L98 388 Q100 376 94 370 L76 370 Q68 370 66 372Z" fill="#f4f4f4" stroke="#cfd4d7" stroke-width="1.5"/><path d="M134 372 Q134 386 120 388 L102 388 Q100 376 106 370 L124 370 Q132 370 134 372Z" fill="#f4f4f4" stroke="#cfd4d7" stroke-width="1.5"/>
-    <g transform="translate(100 0) scale(1 1) translate(-100 0)"><path d="M76 178 Q100 206 124 178 Q120 168 100 168 Q80 168 76 178Z" fill="#3b8600"/><path d="M64 196 Q66 180 84 176 L116 176 Q134 180 136 196 L132 292 Q100 300 68 292 Z" fill="#5aa51e"/><path d="M64 196 Q66 180 84 176 L116 176 Q134 180 136 196 L132 292 Q100 300 68 292 Z" fill="url(#av-top)"/><path d="M86 176 Q100 196 114 176" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="3"/><circle cx="100" cy="228" r="14" fill="#fff" fill-opacity=".92"/><circle cx="100" cy="228" r="9.5" fill="#5aa51e"/><path d="M92 230 Q100 225 108 228" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-opacity=".85"/><path d="M94 196 L92 214 M106 196 L108 214" stroke="#fff" stroke-opacity=".8" stroke-width="2"/><g class="av-arm-l"><path d="M68 190 Q52 196 50 226 L48 270 Q48 278 56 278 Q62 278 62 270 L66 230 Z" fill="#5aa51e"/><circle cx="55" cy="282" r="10" fill="#f1c7a0"/></g><g class="av-arm-r"><path d="M132 190 Q148 196 150 226 L152 270 Q152 278 144 278 Q138 278 138 270 L134 230 Z" fill="#5aa51e"/><circle cx="145" cy="282" r="10" fill="#f1c7a0"/></g></g>
-    <rect x="91" y="160" width="18" height="22" rx="6" fill="#f1c7a0"/>
-    <g class="av-head">
+    <g transform="translate(100 0) scale(1 1) translate(-100 0)"><path d="M74 226 L72 370 Q72 376 78 376 L96 376 L99 244 Z" fill="#3a5a86"/><path d="M74 226 L72 370 Q72 376 78 376 L96 376 L99 244 Z" fill="url(#av-cyl)"/><path d="M126 226 L128 370 Q128 376 122 376 L104 376 L101 244 Z" fill="#3a5a86"/><path d="M126 226 L128 370 Q128 376 122 376 L104 376 L101 244 Z" fill="url(#av-cyl)"/><path d="M73 224 L127 224 L127 246 L73 246 Z" fill="#3a5a86"/><path d="M100 244 V256" stroke="#072753" stroke-width="2"/></g>
+    <path d="M64 376 Q64 390 78 392 L98 392 Q100 380 95 374 L76 374 Q66 374 64 376Z" fill="#f4f4f4" stroke="#cfd4d7" stroke-width="1.5"/><path d="M136 376 Q136 390 122 392 L102 392 Q100 380 105 374 L124 374 Q134 374 136 376Z" fill="#f4f4f4" stroke="#cfd4d7" stroke-width="1.5"/>
+    <g transform="translate(100 0) scale(1 1) translate(-100 0)"><path d="M78 120 Q100 142 122 120 Q118 110 100 110 Q82 110 78 120Z" fill="#3b8600"/><path d="M66 132 Q68 118 86 116 L114 116 Q132 118 134 132 L128 230 Q100 236 72 230 Z" fill="#5aa51e"/><path d="M66 132 Q68 118 86 116 L114 116 Q132 118 134 132 L128 230 Q100 236 72 230 Z" fill="url(#av-cyl)"/><path d="M88 116 Q100 132 112 116" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="2.5"/><circle cx="100" cy="160" r="11" fill="#fff" fill-opacity=".92"/><circle cx="100" cy="160" r="7.5" fill="#5aa51e"/><path d="M94 162 Q100 158 106 160" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-opacity=".85"/><path d="M95 130 L93 146 M105 130 L107 146" stroke="#fff" stroke-opacity=".8" stroke-width="1.8"/><g class="av-arm-l"><path d="M70 122 Q56 126 54 150 L52 226 Q52 234 60 234 Q66 234 66 226 L68 152 Z" fill="#5aa51e"/><path d="M70 122 Q56 126 54 150 L52 226 Q52 234 60 234 Q66 234 66 226 L68 152 Z" fill="url(#av-cyl)"/><circle cx="59" cy="240" r="8.5" fill="#f1c7a0"/></g><g class="av-arm-r"><path d="M130 122 Q144 126 146 150 L148 226 Q148 234 140 234 Q134 234 134 226 L132 152 Z" fill="#5aa51e"/><path d="M130 122 Q144 126 146 150 L148 226 Q148 234 140 234 Q134 234 134 226 L132 152 Z" fill="url(#av-cyl)"/><circle cx="141" cy="240" r="8.5" fill="#f1c7a0"/></g></g>
+    <rect x="92" y="100" width="16" height="22" rx="5" fill="#f1c7a0"/>
+    <g transform="translate(100 116) scale(.7) translate(-100 -166)"><g class="av-head">
       
       <ellipse cx="46" cy="104" rx="9" ry="13" fill="#f1c7a0"/>
       <ellipse cx="154" cy="104" rx="9" ry="13" fill="#f1c7a0"/>
@@ -96,10 +148,10 @@ svg.rib{position:absolute;left:0;top:0}
       <ellipse cx="132" cy="124" rx="8" ry="5" fill="#f08a8a" fill-opacity=".3"/>
       
       <path d="M44 100 Q40 22 100 20 Q160 22 156 100" fill="none" stroke="#2b2f33" stroke-width="9"/><rect x="30" y="86" width="22" height="38" rx="9" fill="#2b2f33"/><rect x="148" y="86" width="22" height="38" rx="9" fill="#2b2f33"/>
-    </g>
+    </g></g>
   </g>
 </svg></div>
-  <div class="logo">green<b>blade</b></div>
+  <div class="logo"><b>NOSTALGIA</b>CONSOLE</div>
   <div class="sub">the dashboard for your steam library</div>
   <div class="hint"><span><em style="background:#5dbb1f">A</em>play</span><span><em style="background:#e0262c">B</em>back</span><span><em style="background:#f0b000">Y</em>pin</span></div>
 </div></div></body></html>

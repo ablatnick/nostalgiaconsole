@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- chrome sphere -->
+    <radialGradient id="chrome" cx="36%" cy="28%" r="78%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".18" stop-color="#eef0f1"/>
+      <stop offset=".5" stop-color="#b9bec2"/>
+      <stop offset=".78" stop-color="#7d8489"/>
+      <stop offset="1" stop-color="#4a5054"/>
+    </radialGradient>
+    <radialGradient id="rim" cx="50%" cy="50%" r="50%">
+      <stop offset=".86" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".35"/>
+    </radialGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <!-- green band: bright core fading to deep green at the edges -->
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3f9a0c"/>
+      <stop offset=".35" stop-color="#8fe03a"/>
+      <stop offset=".5" stop-color="#d6ff9a"/>
+      <stop offset=".65" stop-color="#8fe03a"/>
+      <stop offset="1" stop-color="#2f7a07"/>
+    </linearGradient>
+    <linearGradient id="bandBack" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2f7a07" stop-opacity=".0"/>
+      <stop offset=".5" stop-color="#3f9a0c" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#2f7a07" stop-opacity=".0"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <clipPath id="ball"><circle cx="256" cy="256" r="196"/></clipPath>
+  </defs>
+
+  <!-- ground shadow -->
+  <ellipse cx="256" cy="478" rx="150" ry="18" fill="#000" opacity=".22" filter="url(#soft)"/>
+
+  <!-- back half of the orbit, behind the sphere -->
+  <g transform="rotate(-24 256 256)">
+    <path d="M28 256 A228 70 0 0 1 484 256 L470 256 A214 56 0 0 0 42 256 Z" fill="url(#bandBack)"/>
+  </g>
+
+  <!-- sphere -->
+  <circle cx="256" cy="256" r="196" fill="url(#chrome)"/>
+  <circle cx="256" cy="256" r="196" fill="url(#rim)"/>
+  <!-- green light inside the sphere, under the band -->
+  <g clip-path="url(#ball)" opacity=".28">
+    <ellipse cx="256" cy="262" rx="210" ry="58" transform="rotate(-24 256 256)" fill="#7fd43a" filter="url(#soft)"/>
+  </g>
+
+  <!-- front half of the orbit, wrapping across the sphere -->
+  <g transform="rotate(-24 256 256)" filter="url(#glow)">
+    <path d="M12 256 A244 92 0 0 0 500 256 L466 256 A210 50 0 0 1 46 256 Z" fill="url(#band)"/>
+    <path d="M34 266 A222 70 0 0 0 478 266" fill="none" stroke="#f4ffe0" stroke-opacity=".9" stroke-width="5"/>
+  </g>
+
+  <!-- top gloss -->
+  <ellipse cx="226" cy="150" rx="118" ry="72" fill="url(#gloss)" opacity=".85"/>
+  <circle cx="256" cy="256" r="195" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="3"/>
+</svg>

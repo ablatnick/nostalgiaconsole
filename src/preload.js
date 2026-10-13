@@ -2,7 +2,7 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('greenblade', {
+contextBridge.exposeInMainWorld('nostalgia', {
   getLibrary: () => ipcRenderer.invoke('library:get'),
   refreshLibrary: () => ipcRenderer.invoke('library:refresh'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
