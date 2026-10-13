@@ -50,6 +50,14 @@ only="$*"
 # Game details show the install path, so build the test library at a
 # neutral path rather than inside the checkout.
 FIXTURE_DIR=/tmp/nostalgiaconsole-demo node test/make-fixture.js
+# lookshot <name> <dashboard style> <keys>
+lookshot() {
+  keep=${SETTINGS:-}
+  SETTINGS="$keep\"look\":\"$2\","
+  shot "$1" "$3"
+  SETTINGS=$keep
+}
+
 shot home ''
 shot games 'E'
 shot video 'E,E,E'
@@ -64,5 +72,8 @@ shot avatar-editor 'G,Down,Down,Return,wait1500'
 shot signin 'G,Down,Down,Down,Down,Return,Right,wait2500'
 shot midnight '' midnight
 shot boot '' classic --intro --delay=900
+lookshot look-xmb xmb ''
+lookshot look-wii wii ''
+lookshot look-wii-preview wii 'Return'
 rm -rf "$ud"
 if grep -q '^\[page\|^\[missing' "$log"; then echo 'FAILED: see the messages above'; exit 1; fi

@@ -11,11 +11,14 @@ const BG_COLORS = ['', 'silver', 'graphite', 'black', 'navy', 'forest', 'plum', 
 const TILE_SIZES = ['huge', 'large', 'medium', 'small', 'tiny'];
 const TEXT_SIZES = ['small', 'normal', 'large'];
 // Pivots that can be hidden (home and settings always stay).
+// Dashboard styles (src/renderer/looks). 'metro' is the 2011 360 look.
+const LOOKS = ['metro', 'nxe', 'blades', 'xmb', 'wii', 'ps5', 'switch'];
 const TABS = ['search', 'games', 'apps', 'video', 'streaming', 'social', 'steam'];
 const COUNTS = { recentCount: [0, 3, 6, 9, 12], friendCount: [6, 12, 18, 24, 36] };
 
 const DEFAULTS = {
   theme: 'classic',
+  look: 'metro',
   sound: true,
   volume: 60,
   intro: true,
@@ -44,12 +47,13 @@ const DEFAULTS = {
 };
 
 // What each profile keeps for itself.
-const PROFILE_KEYS = ['gamertag', 'avatarLook', 'gamerpic', 'pinned', 'theme', 'tileColor', 'bgColor'];
+const PROFILE_KEYS = ['gamertag', 'avatarLook', 'gamerpic', 'pinned', 'theme', 'tileColor', 'bgColor', 'look'];
 
 function sanitize(input) {
   const s = { ...DEFAULTS };
   if (!input || typeof input !== 'object') return s;
   if (THEMES.includes(input.theme)) s.theme = input.theme;
+  if (LOOKS.includes(input.look)) s.look = input.look;
   for (const k of ['sound', 'intro', 'showTools', 'fullscreen', 'communityAvatar', 'moonlight', 'avatar', 'autostart', 'cycleTiles']) {
     if (typeof input[k] === 'boolean') s[k] = input[k];
   }
@@ -119,7 +123,7 @@ Settings.prototype.createProfile = function createProfile(name) {
     v.profile = 'p1';
   }
   const id = 'p' + (Math.max(0, ...v.profiles.map((p) => Number(p.id.slice(1)))) + 1);
-  v.profiles.push({ id, name: String(name || 'player').slice(0, 32), gamertag: String(name || '').slice(0, 32), avatarLook: null, gamerpic: '', pinned: [], theme: v.theme });
+  v.profiles.push({ id, name: String(name || 'player').slice(0, 32), gamertag: String(name || '').slice(0, 32), avatarLook: null, gamerpic: '', pinned: [], theme: v.theme, look: v.look });
   return this.switchProfile(id);
 };
 
@@ -138,4 +142,4 @@ Settings.prototype.removeProfile = function removeProfile(id) {
   return this.update({ profiles: v.profiles.filter((p) => p.id !== id) });
 };
 
-module.exports = { Settings, sanitize, DEFAULTS, THEMES, AFTER_LAUNCH, TILE_COLORS, BG_COLORS, TILE_SIZES, TEXT_SIZES, TABS, COUNTS };
+module.exports = { Settings, sanitize, DEFAULTS, THEMES, AFTER_LAUNCH, TILE_COLORS, BG_COLORS, TILE_SIZES, TEXT_SIZES, TABS, COUNTS, LOOKS };

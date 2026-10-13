@@ -3,6 +3,7 @@ import * as sound from './sound.js';
 import { icon } from './icons.js';
 import { avatarSvg, PARTS, VIEW_HEAD, VIEW_FULL, normalizeLook, randomLook } from './avatar.js';
 import { AvatarView, AvatarLineup, snapshot, webglAvailable } from './avatar3d.js';
+import { LOOK_MODULES } from './looks/index.js';
 
 // 3D avatars when WebGL works, the flat drawing otherwise.
 const GL = webglAvailable();
@@ -23,6 +24,11 @@ const params = new URLSearchParams(location.search);
 const CAPTURE = params.has('capture');
 
 const THEMES = ['classic', 'midnight', 'ember', 'arctic'];
+// Dashboard styles; settings.js has the same list.
+const LOOK_NAMES = {
+  metro: '360 metro (2011)', nxe: '360 nxe (2008)', blades: '360 blades (2005)', xmb: 'cross media bar',
+  wii: 'channels', ps5: 'modern cards', switch: 'tile strip',
+};
 const AFTER_LAUNCH = ['stay', 'minimize', 'close'];
 const VOLUMES = [20, 40, 60, 80, 100];
 // Customize options; settings.js has the same lists. '' = the theme's own.
@@ -448,23 +454,51 @@ function buildPivots() {
   const st = steamTiles();
   if (st[0] && st[0].type === 'profile') { st[0].w = 2; st[0].h = 2; }
   pivots.push({ key: 'steam', title: 'steam', tiles: flow(st) });
-  const friends = state.web && state.web.friends ? state.web.friends : [];
+  const friends = friendTiles();
   if (friends.length) {
-    // A compact friends list: slim rows (picture + name), six per column,
-    // in game first, then online, then offline.
-    const rank = (f) => (f.game ? 0 : f.state ? 1 : 2);
-    const list = friends.map((f, i) => [f, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([f]) => f);
+    // A compact friends list: slim rows (picture + name), six per column.
     const perCol = ROWS * 2;
-    const tiles = list.slice(0, state.settings.friendCount || 24).map((f, i) => ({
-      key: 'friend:' + f.steamid, type: 'friend', friend: f, caption: f.name, title: f.name,
-      value: f.game ? `playing ${f.game}` : f.state ? 'online' : 'offline',
-      c: Math.floor(i / perCol) * 1.5, r: (i % perCol) / 2, w: 1.5, h: 0.5,
-      activate: () => openSteam('message', f.steamid),
-    }));
+    const tiles = friends.map((t, i) => Object.assign(t, { c: Math.floor(i / perCol) * 1.5, r: (i % perCol) / 2, w: 1.5, h: 0.5 }));
     pivots.splice(pivots.length - 1, 0, { key: 'social', title: 'social', tiles });
   }
   pivots.push({ key: 'settings', title: 'settings', tiles: flow(settingTiles()) });
   return pivots;
+}
+
+// Friends, in game first, then online, then offline.
+function friendTiles() {
+  const friends = state.web && state.web.friends ? state.web.friends : [];
+  const rank = (f) => (f.game ? 0 : f.state ? 1 : 2);
+  const list = friends.map((f, i) => [f, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([f]) => f);
+  return list.slice(0, state.settings.friendCount || 24).map((f) => ({
+    key: 'friend:' + f.steamid, type: 'friend', friend: f, caption: f.name, title: f.name,
+    value: f.game ? `playing ${f.game}` : f.state ? 'online' : 'offline',
+    sub: f.game ? `playing ${f.game}` : f.state ? 'online' : 'offline',
+    activate: () => openSteam('message', f.steamid),
+  }));
+}
+
+// The same content as the pivots, as plain sections for the other
+// dashboard styles: no grid positions, every game in games, no home.
+const SECTION_ICONS = { search: 'search', games: 'controller', apps: 'grid', video: 'bigpicture', streaming: 'stream', social: 'friends', steam: 'store', settings: 'gear' };
+function catalog() {
+  const hidden = new Set(state.settings.hiddenTabs || []);
+  const strip = (t) => { const { c, r, w, h, hero, cycle, ...rest } = t; return rest; };
+  return buildPivots().filter((pv) => pv.key !== 'home' && !hidden.has(pv.key)).map((pv) => {
+    let items = pv.tiles.map(strip);
+    if (pv.key === 'games') {
+      items = sorted(state.steamGames, 'recent').map((g) => gameTile(g)).concat(items.filter((t) => t.type !== 'game'));
+    }
+    return { key: pv.key, title: pv.title, icon: SECTION_ICONS[pv.key] || 'grid', items };
+  });
+}
+
+// Recently played games and streams, for styles with a "home" row.
+function recentItems(n = 12) {
+  const pinned = state.settings.pinned.map((id) => state.byId.get(id)).filter(Boolean);
+  const rest = sorted(state.all, 'recent').filter((g) => !pinned.includes(g));
+  return pinned.concat(rest).slice(0, n).map((g) => gameTile(g))
+    .concat(state.streams.slice(0, 2).map(streamTile));
 }
 
 function notInstalled() {
@@ -670,7 +704,7 @@ function tileRect(t, m, px) {
 let cycleStep = 0;
 function cycleTiles() {
   const home = state.channels.find((c) => c.key === 'home');
-  if (!home || document.hidden || state.settings.cycleTiles === false) return;
+  if (!home || document.hidden || state.settings.cycleTiles === false || state.view !== metroLook) return;
   const tiles = home.tiles.filter((t) => t.cycle && t.cycle.list.length > 2);
   if (!tiles.length) return;
   cycleStep++;
@@ -702,7 +736,7 @@ setInterval(cycleTiles, 6000);
 // console's avatar screens.
 function avatarShown() {
   const ch = state.channels[state.ch];
-  return !!(GL && ch && ch.key === 'steam' && !state.overlays.length);
+  return !!(GL && state.view === metroLook && ch && ch.key === 'steam' && !state.overlays.length);
 }
 
 function placeStandingAvatar(m, xs) {
@@ -767,9 +801,13 @@ function layout() {
   renderHints();
 }
 
-function currentTile() {
+function metroCurrent() {
   const ch = state.channels[state.ch];
   return ch && ch.tiles[focusIndex(ch)];
+}
+
+function currentTile() {
+  return state.view ? state.view.current() : null;
 }
 
 function activateTile() {
@@ -836,26 +874,70 @@ function switchPivot(delta, row = null) {
 }
 
 function dashHandle(a) {
+  if (state.view.handle(a)) return;
   const t = currentTile();
   switch (a) {
-    case 'left': case 'right': case 'up': case 'down': move(a); break;
-    case 'lb': switchPivot(-1); break;
-    case 'rb': switchPivot(1); break;
     case 'a': activateTile(); break;
     case 'x': if (t && t.type === 'game') launch(t.game); else if (t && t.type === 'stream') startStream(t.game); break;
     case 'y': if (t && (t.type === 'game' || t.type === 'stream')) togglePin(t.game); break;
-    case 'b':
-      if (state.channels[state.ch].key !== 'home' || focusIndex(state.channels[state.ch]) !== 0) {
-        state.ch = state.channels.findIndex((c) => c.key === 'home');
-        state.focus.home = 0;
-        sound.play('back');
-        layout();
-      }
-      break;
+    case 'b': if (state.view.home()) sound.play('back'); break;
     case 'start': if (t && t.type === 'game') { sound.play('open'); openDetail(t.game); } else openGuide(); break;
     case 'view': case 'guide': openGuide(); break;
     default:
   }
+}
+
+// The 2011 pivots, as a dashboard style.
+const metroLook = {
+  id: 'metro',
+  render: renderDash,
+  layout,
+  current: metroCurrent,
+  handle(a) {
+    if (a === 'left' || a === 'right' || a === 'up' || a === 'down') { move(a); return true; }
+    if (a === 'lb' || a === 'rb') { switchPivot(a === 'lb' ? -1 : 1); return true; }
+    return false;
+  },
+  home() {
+    const hi = state.channels.findIndex((c) => c.key === 'home');
+    if (state.ch === hi && focusIndex(state.channels[hi]) === 0) return false;
+    state.ch = hi;
+    state.focus.home = 0;
+    layout();
+    return true;
+  },
+  goto(key) {
+    const ci = state.channels.findIndex((c) => c.key === key);
+    if (ci >= 0) { state.ch = ci; state.focus[key] = 0; layout(); }
+  },
+  hints: () => [['lb', 'switch']],
+  destroy() { dash.innerHTML = ''; },
+};
+
+// Shared with the other styles (src/renderer/looks).
+const lookCtx = {
+  state, el, esc, icon, artEl, artUrl, sound, GL, AvatarView,
+  catalog, recentItems, isPinned, gameSub, timeAgo, displayName, gamesLine, gamerscoreText, look: () => look(),
+  avatarPic: (...a) => avatarPic(...a), fillGamerpic: (...a) => fillGamerpic(...a),
+  activate: () => activateTile(), hints: () => renderHints(), openGuide: () => openGuide(), openLibrary: (o) => openLibrary(o),
+};
+
+function makeLook(id) {
+  if (id !== 'metro' && LOOK_MODULES[id]) return LOOK_MODULES[id](lookCtx, dash);
+  return metroLook;
+}
+
+// Builds the dashboard in the chosen style.
+function renderView() {
+  const want = state.settings.look || 'metro';
+  if (!state.view || state.view.id !== want) {
+    if (state.view) state.view.destroy();
+    state.view = makeLook(want);
+    document.body.dataset.look = state.view.id;
+    if (dashAvatar && state.view.id !== 'metro') dashAvatar.stop();
+  }
+  state.view.render();
+  renderHints();
 }
 
 function dashHints() {
@@ -863,7 +945,7 @@ function dashHints() {
   const h = [['a', 'select']];
   if (t && t.type === 'game') h.push(['x', 'play'], ['y', isPinned(t.game) ? 'unpin' : 'pin'], ['start', 'details']);
   else if (t && t.type === 'stream') h.push(['y', isPinned(t.game) ? 'unpin' : 'pin']);
-  h.push(['lb', 'switch']);
+  if (state.view && state.view.hints) h.push(...state.view.hints());
   return h;
 }
 
@@ -882,7 +964,7 @@ function rebuild() {
     const ti = ch.tiles.findIndex((t) => t.key === keepTiles[ch.key]);
     if (ti >= 0) state.focus[ch.key] = ti;
   }
-  renderDash();
+  renderView();
   renderGamercard();
 }
 
@@ -1168,8 +1250,7 @@ function openGuide() {
 
   const goChannel = (key) => () => {
     closeAll();
-    const ci = state.channels.findIndex((c) => c.key === key);
-    if (ci >= 0) { state.ch = ci; state.focus[key] = 0; layout(); }
+    if (key === 'home') state.view.home(); else if (state.view.goto) state.view.goto(key);
   };
   const recent = state.all.filter((g) => g.lastPlayed > 0).sort(byRecent).slice(0, 5);
   const ml = state.lib.moonlight;
@@ -1195,6 +1276,7 @@ function openGuide() {
     ] },
     { icon: 'gear', label: 'settings', items: () => [
       { icon: 'gear', label: 'dashboard settings', run: goChannel('settings') },
+      { icon: 'grid', label: `dashboard style: ${LOOK_NAMES[state.settings.look] || 'metro'}`, run: async () => { const ks = Object.keys(LOOK_NAMES); state.settings = await api.setSettings({ look: ks[(ks.indexOf(state.settings.look) + 1) % ks.length] }); applySettings(); rebuild(); show(tab, m.index()); } },
       { icon: 'grid', label: 'customize', run: () => { closeAll(); openCustomize(); } },
       { icon: 'palette', label: `theme: ${state.settings.theme}`, run: async () => { state.settings = await api.setSettings({ theme: THEMES[(THEMES.indexOf(state.settings.theme) + 1) % THEMES.length] }); applySettings(); rebuild(); show(tab, m.index()); } },
       { icon: state.settings.sound ? 'sound' : 'mute', label: `sounds: ${state.settings.sound ? 'on' : 'off'}`, run: async () => { state.settings = await api.setSettings({ sound: !state.settings.sound }); applySettings(); show(tab, m.index()); } },
@@ -1782,6 +1864,7 @@ function openCustomize() {
   const named = (v) => v || 'theme default';
   const tabs = [
     { icon: 'palette', label: 'colors', items: () => [
+      opt('grid', 'dashboard style', 'look', Object.keys(LOOK_NAMES), (v) => LOOK_NAMES[v], null, 'the whole home screen: 360 metro, nxe or blades, a cross media bar, channels, modern cards or a tile strip'),
       opt('palette', 'theme', 'theme', THEMES, (v) => v, null, 'the overall style; colors below go on top of it'),
       opt('grid', 'tile color', 'tileColor', ['', ...Object.keys(TILE_HEX)], named, (v) => TILE_HEX[v] || 'var(--tile)', 'the color of the dashboard tiles'),
       opt('image', 'background', 'bgColor', ['', ...Object.keys(BG_HEX)], named, (v) => (BG_HEX[v] ? `linear-gradient(${BG_HEX[v].join(',')})` : 'var(--bg-mid)'), 'the color behind the tiles'),
@@ -1898,7 +1981,8 @@ window.addEventListener('wheel', (e) => {
   if (state.overlays.length || Date.now() - wheelAt < 220) return;
   wheelAt = Date.now();
   const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-  switchPivot(d > 0 ? 1 : -1);
+  if (state.view) state.view.handle(d > 0 ? 'rb' : 'lb');
+  renderHints();
 }, { passive: true });
 
 let idleTimer = null;
@@ -1908,7 +1992,7 @@ window.addEventListener('mousemove', () => {
   idleTimer = setTimeout(() => document.body.classList.add('nocursor'), 2500);
 });
 window.addEventListener('contextmenu', (e) => { e.preventDefault(); handle('b'); });
-window.addEventListener('resize', () => layout());
+window.addEventListener('resize', () => { if (state.view) state.view.layout(); });
 
 // ---------- boot ----------
 
@@ -1936,7 +2020,7 @@ async function boot() {
   applySettings();
   state.channels = buildChannels();
   state.ch = state.channels.findIndex((c) => c.key === 'home');
-  renderDash();
+  renderView();
   renderGamercard();
   tickClock();
   setInterval(tickClock, 15000);

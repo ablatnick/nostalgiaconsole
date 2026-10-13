@@ -1,0 +1,107 @@
+/* Dashboard styles other than the 360 metro pivots (src/renderer/looks).
+   Each one draws its own background, so the metro background, standing
+   avatar and gamercard header step aside. */
+body:not([data-look="metro"]) #bg,
+body:not([data-look="metro"]) #avatar { display: none; }
+body:not([data-look="metro"]) #dash { position: fixed; inset: 0; }
+
+/* ---------- cross media bar ---------- */
+body[data-look="xmb"] { background: #222; }
+body[data-look="xmb"] #top { display: none; }
+body[data-look="xmb"] #hints { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
+.xmb { position: fixed; inset: 0; overflow: hidden; color: #fff; font-weight: 300; }
+.xmb-wave { position: absolute; inset: 0; width: 100%; height: 100%; }
+.xmb-clock { position: absolute; top: 5vh; right: 5vw; font-size: clamp(14px, 2.4vh, 24px); letter-spacing: .04em; text-shadow: 0 1px 4px rgba(0, 0, 0, .4); }
+.xmb-cat, .xmb-item { position: absolute; left: 0; top: 0; transition: transform .28s cubic-bezier(.2, .8, .25, 1), opacity .28s; will-change: transform; }
+.xmb-cat { display: grid; place-items: center; cursor: pointer; transform-origin: center; }
+.xmb-cat .ico { width: 80%; height: 80%; stroke-width: 1.4; filter: drop-shadow(0 0 6px rgba(255, 255, 255, .35)); }
+.xmb-cat span { position: absolute; top: 104%; white-space: nowrap; font-size: clamp(12px, 2vh, 20px); opacity: 0; transition: opacity .2s; text-shadow: 0 1px 4px rgba(0, 0, 0, .5); }
+.xmb-cat.on span { opacity: 1; }
+.xmb-cat.on .ico { filter: drop-shadow(0 0 10px rgba(255, 255, 255, .8)); }
+.xmb-col { position: absolute; inset: 0; pointer-events: none; }
+.xmb-col.on { pointer-events: auto; }
+.xmb-item { display: flex; align-items: center; gap: 1.6vw; height: var(--h); cursor: pointer; }
+.xmb-pic { position: relative; height: 100%; aspect-ratio: 1; display: grid; place-items: center; }
+.xmb-pic.wide { aspect-ratio: 1.82; }
+.xmb-pic .art { position: absolute; inset: 0; overflow: hidden; border-radius: 3px; }
+.xmb-pic .art .blur { display: none; }
+.xmb-pic .art .fg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.xmb-pic .art.noart { background: rgba(255, 255, 255, .12); display: grid; place-items: center; font-size: 12px; text-align: center; padding: 4px; }
+.xmb-pic .art-icon { position: static; display: grid; place-items: center; width: 70%; height: 70%; }
+.xmb-pic .art-icon .ico { width: 100%; height: 100%; stroke-width: 1.3; }
+.xmb-pic .art-pic { border-radius: 4px; }
+.xmb-pic .art-pic img { width: 100%; height: 100%; object-fit: cover; }
+.xmb-item.on .xmb-pic .art:not(.art-icon) { box-shadow: 0 0 0 2px rgba(255, 255, 255, .85), 0 0 22px rgba(255, 255, 255, .45); }
+.xmb-item.on .art-icon .ico { filter: drop-shadow(0 0 8px rgba(255, 255, 255, .8)); }
+.xmb-text { display: flex; flex-direction: column; gap: .3em; white-space: nowrap; text-shadow: 0 1px 4px rgba(0, 0, 0, .55); }
+.xmb-text b { font-weight: 400; font-size: clamp(13px, 2.2vh, 22px); }
+.xmb-text span { font-size: clamp(10px, 1.5vh, 15px); opacity: 0; transition: opacity .2s; }
+.xmb-item.on .xmb-text b { font-size: clamp(15px, 2.8vh, 28px); }
+.xmb-item.on .xmb-text span { opacity: .85; }
+.xmb-empty { position: absolute; left: 24vw; top: 45vh; opacity: .7; }
+.xmb-items { position: absolute; inset: 0; -webkit-mask-image: linear-gradient(#000 0 84%, transparent 92%); mask-image: linear-gradient(#000 0 84%, transparent 92%); }
+
+/* ---------- channels ---------- */
+body[data-look="wii"] { background: #e9ecef; }
+body[data-look="wii"] #top { display: none; }
+body[data-look="wii"] #hints { color: #6b7378; bottom: auto; top: 2.2vh; left: 0; right: 0; justify-content: center; }
+.wii { position: fixed; inset: 0; overflow: hidden; color: #50575c; font-weight: 400;
+  background: repeating-linear-gradient(180deg, #f4f6f7 0 3px, #e8ebee 3px 6px); }
+.wii-pages { position: absolute; transition: transform .45s cubic-bezier(.3, .8, .3, 1); }
+.wii-page { position: absolute; top: 0; display: grid; grid-template-columns: repeat(4, var(--cw)); grid-auto-rows: var(--ch); gap: var(--gap); }
+.wii-ch { position: relative; border-radius: calc(var(--ch) * .12); background: #fff; overflow: hidden; cursor: pointer;
+  box-shadow: 0 0 0 2px #c9ced2, 0 2px 6px rgba(0, 0, 0, .08); transition: transform .18s, box-shadow .18s; }
+.wii-ch.empty { background: repeating-linear-gradient(135deg, #f0f2f4 0 8px, #e4e8eb 8px 16px); box-shadow: 0 0 0 2px #d6dadd; cursor: default; }
+.wii-ch .art { position: absolute; inset: 0; }
+.wii-ch .art .blur { display: none; }
+.wii-ch .art .fg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wii-ch .art.noart { display: grid; place-items: center; text-align: center; padding: 8px; font-weight: 600; color: #6b7378; background: linear-gradient(#fff, #e9edf0); }
+.wii-ch .art-icon { display: grid; place-items: center; align-content: center; gap: 6px; color: #3aa7d8; background: linear-gradient(#fff, #e6eef3); }
+.wii-ch .art-icon .ico { width: 34%; height: 34%; stroke-width: 1.5; }
+.wii-ch .art-icon.folder b { font-size: clamp(12px, 2vh, 20px); color: #56606a; font-weight: 600; text-transform: capitalize; }
+.wii-ch .art-pic { display: grid; place-items: center; background: linear-gradient(#fff, #e9edf0); }
+.wii-ch .art-pic img { height: 80%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; }
+.wii-ch .art-pic .ico { width: 40%; height: 40%; color: #9aa3a9; }
+.wii-name { position: absolute; left: 0; right: 0; bottom: 0; padding: 14% 8px 5px; font-size: clamp(10px, 1.5vh, 14px); color: #fff; opacity: 0; transition: opacity .18s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: linear-gradient(transparent, rgba(0, 0, 0, .55)); }
+.wii-ch.on { transform: scale(1.05); box-shadow: 0 0 0 3px #34beed, 0 0 18px 4px rgba(52, 190, 237, .65); z-index: 2; }
+.wii-ch.on .wii-name { opacity: 1; }
+.wii-arrow { position: absolute; top: 38%; width: 4.5vh; height: 9vh; border: 0; border-radius: 1vh; color: #34beed; background: rgba(255, 255, 255, .8);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .12); font-size: 2.4vh; opacity: 0; transition: opacity .2s; cursor: pointer; }
+.wii-arrow.l { left: 1.6vw; } .wii-arrow.r { right: 1.6vw; }
+.wii-arrow.show { opacity: 1; }
+.wii-folder { position: absolute; top: 1.6vh; left: 4vw; font-size: clamp(16px, 2.8vh, 28px); color: #3aa7d8; text-transform: capitalize; opacity: 0; transition: opacity .2s; }
+.wii-folder.show { opacity: 1; }
+.wii-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 22vh; }
+.wii-curve { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wii-curve path { fill: #d9dee2; stroke: #c3c9ce; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.wii-time { position: absolute; left: 0; right: 0; top: 18%; display: flex; flex-direction: column; align-items: center; gap: .4vh; color: #9ba3a9; }
+.wii-time b { font-size: clamp(26px, 6vh, 60px); font-weight: 300; letter-spacing: .04em; }
+.wii-time span { font-size: clamp(12px, 2vh, 20px); color: #8a9298; }
+.wii-round { position: absolute; top: 30%; width: 12vh; height: 12vh; border-radius: 50%; border: 0; display: grid; place-items: center; color: #8a9298; cursor: pointer;
+  background: radial-gradient(circle at 50% 35%, #fff, #e1e6ea 70%); box-shadow: 0 0 0 3px #c3c9ce, 0 3px 8px rgba(0, 0, 0, .12); transition: box-shadow .18s, color .18s; }
+.wii-round .ico { width: 45%; height: 45%; }
+.wii-round.left { left: 6vw; } .wii-round.right { right: 6vw; }
+.wii-round.on { color: #34beed; box-shadow: 0 0 0 3px #34beed, 0 0 18px 4px rgba(52, 190, 237, .6); }
+.wii-preview { position: absolute; inset: 0; background: rgba(233, 236, 239, .97); opacity: 0; pointer-events: none; transition: opacity .3s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5vh; }
+.wii-preview.show { opacity: 1; pointer-events: auto; }
+.wii-pv-frame { position: relative; width: 74vw; aspect-ratio: 16 / 8; border-radius: 3vh; overflow: hidden; background: #fff; box-shadow: 0 0 0 3px #c9ced2, 0 8px 30px rgba(0, 0, 0, .15);
+  transform: scale(.6); transition: transform .4s cubic-bezier(.2, .9, .3, 1.1); }
+.wii-preview.show .wii-pv-frame { transform: none; }
+.wii-pv-frame .art { position: absolute; inset: 0; }
+.wii-pv-frame .art .blur { display: none; }
+.wii-pv-frame .art .fg { width: 100%; height: 100%; object-fit: cover; }
+.wii-pv-text { position: absolute; left: 0; right: 0; bottom: 0; padding: 8vh 3vw 2.4vh; color: #fff; background: linear-gradient(transparent, rgba(0, 0, 0, .6)); display: flex; flex-direction: column; gap: .6vh; }
+.wii-pv-text b { font-size: clamp(18px, 3.6vh, 36px); font-weight: 600; }
+.wii-pv-text span { font-size: clamp(11px, 1.8vh, 18px); opacity: .9; }
+.wii-pv-btns { display: flex; gap: 8vw; }
+.wii-btn { min-width: 24vw; padding: 2.2vh 0; border-radius: 6vh; border: 0; font: inherit; font-size: clamp(16px, 2.8vh, 28px); color: #56606a; cursor: pointer;
+  background: linear-gradient(#fff, #dfe4e8); box-shadow: 0 0 0 3px #c3c9ce, 0 3px 8px rgba(0, 0, 0, .1); text-transform: capitalize; }
+.wii-btn.on { color: #1b9fd6; box-shadow: 0 0 0 3px #34beed, 0 0 18px 4px rgba(52, 190, 237, .6); }
+.wii-ch .noart-name, .wii-pv-frame .noart-name { color: #56606a; text-shadow: none; }
+.wii-ch .art-icon.folder b { text-align: center; padding: 0 8px; text-transform: none; }
+.wii-face { width: 46%; aspect-ratio: 1; border-radius: 18%; overflow: hidden; display: grid; place-items: center; background: #dfe5ea; box-shadow: 0 0 0 2px #fff, 0 1px 4px rgba(0, 0, 0, .15); }
+.wii-face img { width: 100%; height: 100%; object-fit: cover; }
+.wii-face .ico { width: 60%; height: 60%; color: #9aa3a9; }
+.wii-face { position: relative; } .wii-face img { position: absolute; inset: 0; }
+.wii-ch:has(.folder) .wii-name { display: none; }

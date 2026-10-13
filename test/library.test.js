@@ -115,11 +115,36 @@ test('the renderer offers exactly the customize values settings accept', () => {
   const keysOf = (name) => {
     const m = app.match(new RegExp(`const ${name} = \\{([\\s\\S]*?)\\n?\\};`));
     assert.ok(m, name);
-    return [...m[1].matchAll(/(?:^|[\s,{])([a-z]+):/g)].map((x) => x[1]);
+    return [...m[1].matchAll(/(?:^|[\s,{])([a-z][a-z0-9]*):/g)].map((x) => x[1]);
   };
   assert.deepStrictEqual(keysOf('TILE_HEX'), S.TILE_COLORS.filter(Boolean));
   assert.deepStrictEqual(keysOf('BG_HEX'), S.BG_COLORS.filter(Boolean));
   assert.deepStrictEqual(keysOf('TILE_SIZES'), S.TILE_SIZES);
   assert.deepStrictEqual(keysOf('TEXT_SIZES'), S.TEXT_SIZES);
   assert.deepStrictEqual(keysOf('TAB_NAMES'), S.TABS);
+  assert.deepStrictEqual(keysOf('LOOK_NAMES'), S.LOOKS);
+  // Every style except the built-in metro has a module in looks/.
+  const reg = fs.readFileSync(path.join(__dirname, '../src/renderer/looks/index.js'), 'utf8');
+  const mods = (reg.match(/LOOK_MODULES = \{([^}]*)\}/) || [])[1].split(',').map((x) => x.trim()).filter(Boolean);
+  assert.deepStrictEqual(mods.sort(), S.LOOKS.filter((l) => l !== 'metro').filter((l) => mods.includes(l)).sort());
+});
+
+test('the dashboard style is kept per profile', () => {
+  const fs = require('fs');
+  const os = require('os');
+  const { Settings, sanitize } = require('../src/main/settings');
+  assert.strictEqual(sanitize({ look: 'xmb' }).look, 'xmb');
+  assert.strictEqual(sanitize({ look: 'nope' }).look, 'metro');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-look-'));
+  try {
+    const st = new Settings(dir);
+    st.update({ look: 'wii' });
+    st.createProfile('two');
+    assert.strictEqual(st.values.look, 'wii');
+    st.update({ look: 'xmb' });
+    st.switchProfile('p1');
+    assert.strictEqual(st.values.look, 'wii');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
