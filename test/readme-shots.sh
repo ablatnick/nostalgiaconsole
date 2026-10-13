@@ -11,7 +11,8 @@ out=${OUT:-docs/screenshots}
 ud=test/.userdata-readme
 log=$(mktemp)
 start=$(mktemp)   # untouched marker: every shot must be newer than this
-trap 'rm -f "$log" "$start"' EXIT
+tries=$(mktemp)   # output of the current attempt
+trap 'rm -f "$log" "$start" "$tries"' EXIT
 sleep 1
 mkdir -p "$out"
 
@@ -27,13 +28,22 @@ shot() {
   name=$1; keys=$2; theme=${3:-classic}
   shift 2; [ $# -gt 0 ] && shift
   if [ -n "$only" ] && ! echo " $only " | grep -q " $name "; then return; fi
-  rm -rf "$ud"; mkdir -p "$ud"
-  printf '{"theme":"%s","intro":true,"moonlight":false,%s%s}\n' "$theme" "${SETTINGS:-}" "$PROFILES" > "$ud/settings.json"
   echo "$name"
-  # Extra args go first: the app reads the first copy of each flag.
-  timeout 90 npx electron . "$@" ${ELECTRON_FLAGS:-} --no-sandbox --steam-root=/tmp/nostalgiaconsole-demo/Steam --user-data="$ud" \
-    --web-fixture=test/web-fixture.json --capture="$out/$name.png" --keys="$keys" --size=1280x720 --delay=3500 2>&1 | grep -iv 'gtk\|dbus\|gles\|viz' | tee -a "$log"
-  [ "$out/$name.png" -nt "$start" ] || echo "[missing] $name.png" | tee -a "$log"
+  # One retry: CI's software GPU process occasionally crashes, which is the
+  # runner, not the app. A real problem fails both times.
+  for try in 1 2; do
+    rm -rf "$ud"; mkdir -p "$ud"
+    printf '{"theme":"%s","intro":true,"moonlight":false,%s%s}\n' "$theme" "${SETTINGS:-}" "$PROFILES" > "$ud/settings.json"
+    : > "$tries"
+    # Extra args go first: the app reads the first copy of each flag.
+    timeout 90 npx electron . "$@" ${ELECTRON_FLAGS:-} --no-sandbox --steam-root=/tmp/nostalgiaconsole-demo/Steam --user-data="$ud" \
+      --web-fixture=test/web-fixture.json --capture="$out/$name.png" --keys="$keys" --size=1280x720 --delay=3500 2>&1 | grep -iv 'gtk\|dbus\|gles\|viz' > "$tries"
+    [ "$out/$name.png" -nt "$start" ] || echo "[missing] $name.png" >> "$tries"
+    cat "$tries"
+    grep -q '^\[page\|^\[missing' "$tries" || break
+    [ $try = 1 ] && echo "  retrying $name"
+  done
+  cat "$tries" >> "$log"
 }
 
 only="$*"
