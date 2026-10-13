@@ -1251,6 +1251,8 @@ export class AvatarView {
       head: this.avatar.getObjectByName('headPivot'),
       armL: this.avatar.getObjectByName('armL'),
       armR: this.avatar.getObjectByName('armR'),
+      elbowL: this.avatar.getObjectByName('armL') && this.avatar.getObjectByName('armL').getObjectByName('elbow'),
+      elbowR: this.avatar.getObjectByName('armR') && this.avatar.getObjectByName('armR').getObjectByName('elbow'),
       lids: [],
     };
     this.avatar.traverse((o) => { if (o.name === 'lid') this.parts.lids.push(o); });
@@ -1289,16 +1291,46 @@ export class AvatarView {
     p.body.scale.y = 1 + Math.sin(t * 1.7) * 0.006;
     p.head.rotation.y = Math.sin(t * 0.45) * 0.25 + Math.sin(t * 1.3) * 0.04;
     p.head.rotation.x = Math.sin(t * 0.7) * 0.04;
-    p.armL.rotation.z = -0.1 - Math.sin(t * 1.7) * 0.02;
-    p.armR.rotation.x = 0;
-    if (now < this.waveUntil) {
-      const k = (this.waveUntil - now) / 1800;
-      const up = Math.min(1, (1 - k) * 5, k * 5);
-      p.armR.rotation.z = 0.1 + up * 2.5 + Math.sin(t * 14) * 0.25 * up;
-      p.body.position.y = Math.max(0, Math.sin((1 - k) * Math.PI * 2)) * 0.05 * up;
-    } else {
-      p.armR.rotation.z = 0.1 + Math.sin(t * 1.7) * 0.02;
-      p.body.position.y = 0;
+    p.head.rotation.z = 0;
+    p.armL.rotation.set(0, 0, -0.1 - Math.sin(t * 1.7) * 0.02);
+    p.armR.rotation.set(0, 0, 0.1 + Math.sin(t * 1.7) * 0.02);
+    if (p.elbowL) p.elbowL.rotation.x = -0.12;
+    if (p.elbowR) p.elbowR.rotation.x = -0.12;
+    p.body.position.set(0, 0, 0);
+    p.body.rotation.z = 0;
+
+    // Now and then an idle action, like the console avatars fidgeting.
+    if (!this.action && now > (this.nextAction || (this.nextAction = now + 6000))) {
+      const names = ['stretch', 'watch', 'shift', 'wave'];
+      this.action = { name: names[Math.floor(Math.random() * names.length)], start: now, dur: 2600 };
+    }
+    if (now < this.waveUntil) this.action = { name: 'celebrate', start: this.waveUntil - 1800, dur: 1800 };
+    const a = this.action;
+    if (a) {
+      const k = Math.min(1, (now - a.start) / a.dur);
+      const ease = Math.sin(k * Math.PI); // 0 → 1 → 0
+      if (a.name === 'celebrate') {
+        p.armL.rotation.z = -0.1 - ease * 2.6;
+        p.armR.rotation.z = 0.1 + ease * 2.6;
+        p.body.position.y = Math.max(0, Math.sin(k * Math.PI * 3)) * 0.06 * ease;
+      } else if (a.name === 'stretch') {
+        p.armL.rotation.z = -0.1 - ease * 2.9;
+        p.armR.rotation.z = 0.1 + ease * 2.9;
+        p.head.rotation.x = -ease * 0.25;
+        p.body.scale.y += ease * 0.015;
+      } else if (a.name === 'watch') {
+        p.armL.rotation.x = -ease * 1.1;
+        p.armL.rotation.z = -0.1 + ease * 0.35;
+        if (p.elbowL) p.elbowL.rotation.x = -0.12 - ease * 1.5;
+        p.head.rotation.x = ease * 0.35;
+        p.head.rotation.y = ease * 0.3;
+      } else if (a.name === 'shift') {
+        p.body.rotation.z = Math.sin(k * Math.PI * 2) * 0.05;
+        p.head.rotation.z = -Math.sin(k * Math.PI * 2) * 0.06;
+      } else if (a.name === 'wave') {
+        p.armR.rotation.z = 0.1 + ease * 2.4 + Math.sin(t * 14) * 0.22 * ease;
+      }
+      if (k >= 1) { this.action = null; this.nextAction = now + 8000 + Math.random() * 6000; }
     }
     const blink = now > this.nextBlink && now < this.nextBlink + 130;
     if (now > this.nextBlink + 130) this.nextBlink = now + 2500 + Math.random() * 3500;

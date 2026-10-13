@@ -41,6 +41,18 @@ Screenshots use the test library from `test/make-fixture.js` (rendered with
   firefighter, scientist, astronaut, pilot, trooper, robot, fox/cat/bear and
   dino hoodies, zombie, mummy, robe, wizard and alien, each with a costume
   color.
+- **Gamerscore and achievements** (with a Steam Web API key): a G total on
+  your gamercard, achievements per game, and "achievement unlocked"
+  pop-ups that show over your game.
+- **Social**: your Steam friends, who's online and what they're playing.
+- **Video**: your Jellyfin server's continue watching, next up, movies and
+  shows, with a built-in player that syncs your progress, and "open in
+  jellyfin" for Watch Party.
+- **Search** with a console-style on-screen keyboard, owned games that
+  aren't installed (with install), and download progress and "download
+  complete" pop-ups.
+- **Profiles** with a "who's playing?" sign-in, each with its own avatar,
+  gamerpic, pins and theme.
 - **Gamerpics**: your Steam picture, your avatar's head, or any picture you
   put in the `gamerpics` folder in the user data folder.
 - A **guide** with a gamercard and tabs (home, games, streaming, settings),
@@ -110,6 +122,27 @@ Moonlight is found as `moonlight-qt`/`moonlight` on `PATH`, the snap, the
 Flatpak (`com.moonlight_stream.Moonlight`), or the default install folder on
 Windows and macOS. Set `MOONLIGHT_BIN` to override.
 
+## Connect Steam and Jellyfin
+
+Both are optional and set up in **settings** with the on-screen keyboard (a
+physical keyboard and paste work too). Keys are stored in `secrets.json` in
+the user data folder, readable only by you, and never shown in the UI.
+
+- **steam web api**: create a key at
+  <https://steamcommunity.com/dev/apikey>. It unlocks gamerscore,
+  achievements, the social pivot and games you own but haven't installed.
+  Your Steam profile's game details and friends list need to be visible to
+  the API (Steam privacy settings).
+- **jellyfin**: enter the server address (for example
+  `http://192.168.1.10:8096`) and an API key from Jellyfin's
+  **Dashboard > API Keys**. Video, images and progress go through
+  NostalgiaConsole, which adds the key itself.
+
+On streaming hosts, NostalgiaConsole asks Sunshine for its app list and
+covers directly, using this device's Moonlight pairing certificate (and
+checking the host's pinned certificate), so it doesn't depend on Moonlight's
+cache.
+
 ## Sound pack
 
 The interface sounds are synthesized. To use your own, put audio files in
@@ -120,6 +153,16 @@ they replace: `move`, `channel` (switching pivots), `select`, `back`,
 `open`, `close`, `notify`, `launch`, `error` and `intro`. Any of `.wav`,
 `.ogg`, `.mp3`, `.m4a` or `.flac` works. **Settings > sound pack** opens the
 folder and reloads it. Sounds you don't provide keep the built-in version.
+
+## Start at login and updates
+
+**Settings > start at login** opens NostalgiaConsole when you log in (on a
+streaming PC that makes it the first thing you see). On a Steam Deck, add it
+as a non-Steam game and launch it from Game Mode.
+
+Releases are built by GitHub Actions when a version tag is pushed
+(`git tag v1.2.3 && git push --tags`); **settings > check for updates**
+looks at the latest release.
 
 ## Options
 

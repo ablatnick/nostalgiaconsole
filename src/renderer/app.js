@@ -60,6 +60,11 @@ function esc(s) {
 }
 
 function artUrl(item, kind) {
+  if (item.kind === 'jf') {
+    const type = kind === 'hero' || kind === 'header' ? (item.backdrop ? 'Backdrop' : 'Primary') : 'Primary';
+    const id = type === 'Backdrop' ? item.backdropItem : kind === 'thumb' ? item.thumbItem : item.id;
+    return `nostalgia://jf/Items/${id}/Images/${type}?maxHeight=${kind === 'hero' ? 1080 : 600}&quality=90`;
+  }
   if (item.kind === 'moonlight') return `nostalgia://art/moonlight/${item.host}/${item.appid}`;
   return `nostalgia://art/${item.kind}/${item.appid}/${kind}`;
 }
@@ -155,7 +160,7 @@ function toast(msg) {
 
 function indexLibrary() {
   const { lib, settings } = state;
-  const steamGames = lib.games.filter((g) => g.installed)
+  const steamGames = lib.games.filter((g) => g.installed || g.downloading)
     .concat(settings.showTools ? lib.tools.filter((t) => t.installed) : []);
   state.steamGames = steamGames;
   state.all = steamGames.concat(lib.shortcuts);
@@ -250,6 +255,32 @@ function settingTiles() {
         state.packCount = await sound.loadPack(await api.soundPack());
         rebuild();
         toast(state.packCount ? `loaded ${state.packCount} sounds from ${dir}` : `put move.wav, select.wav, back.wav… in ${dir}`);
+      } },
+    { key: 'set:steamweb', type: 'icon', icon: 'friends', label: 'steam web api', value: state.keys && state.keys.steam ? 'connected' : 'add your key', title: 'steam web api',
+      activate: async () => {
+        const v = await openKeyboard({ title: 'steam web api key', secret: true, hint: 'get one at steamcommunity.com/dev/apikey — unlocks gamerscore, achievements, friends and games you own' });
+        if (v === null) return;
+        state.keys = await api.setKeys({ steamApiKey: v });
+        toast(v ? 'checking your steam account…' : 'steam web api key removed');
+        rebuild();
+      } },
+    { key: 'set:jellyfin', type: 'icon', icon: 'bigpicture', label: 'jellyfin', value: state.keys && state.keys.jellyfin ? 'connected' : 'connect a server', title: 'jellyfin',
+      activate: async () => {
+        const url = await openKeyboard({ title: 'jellyfin server address', value: (state.keys && state.keys.jellyfinUrl) || 'http://', hint: 'for example http://192.168.1.10:8096' });
+        if (url === null) return;
+        const key = await openKeyboard({ title: 'jellyfin api key', secret: true, hint: 'jellyfin dashboard > api keys > +' });
+        if (key === null) return;
+        state.keys = await api.setKeys({ jellyfinUrl: url, jellyfinKey: key });
+        state.video = null;
+        await loadVideo();
+        rebuild();
+      } },
+    { key: 'set:profiles', type: 'icon', icon: 'friends', label: 'profiles', value: `${Math.max(1, s.profiles.length)} profile${s.profiles.length > 1 ? 's' : ''}`, title: 'profiles', activate: () => openSignIn() },
+    { key: 'set:autostart', type: 'icon', icon: 'power', label: 'start at login', value: onoff(s.autostart), title: 'start at login', activate: set({ autostart: !s.autostart }) },
+    { key: 'set:update', type: 'icon', icon: 'refresh', label: 'check for updates', value: '', title: 'updates',
+      activate: async () => {
+        const u = await api.checkUpdate();
+        toast(u ? `version ${u.version} is available on github` : 'you have the latest version');
       } },
     { key: 'set:volume', type: 'icon', icon: 'volume', label: 'volume', value: `${s.volume}%`, title: 'sound volume', sub: 'loudness of the interface sounds', colors: ['#1aa3a3', '#0d6464'], activate: set({ volume: VOLUMES[(VOLUMES.indexOf(s.volume) + 1) % VOLUMES.length] || 60 }) },
     { key: 'set:intro', type: 'icon', icon: 'sparkle', label: 'startup intro', value: onoff(s.intro), title: 'startup intro', sub: 'play the boot animation when nostalgiaconsole opens', colors: ['#d9a400', '#8d6900'], activate: set({ intro: !s.intro }) },
@@ -371,15 +402,24 @@ function buildChannels() {
   indexLibrary();
   const { lib } = state;
   const pivots = [{ key: 'search', title: 'search', tiles: flow([
-    { key: 'search:az', type: 'icon', icon: 'search', label: 'search games', value: 'a–z', title: 'search', w: 1, h: 1, cls: 'grey', activate: () => openLibrary({ title: 'search', sort: 1 }) },
+    { key: 'search:find', type: 'icon', icon: 'search', label: 'search games', value: 'type a name', title: 'search', w: 1, h: 1, cls: 'grey', activate: () => searchGames() },
+    { key: 'search:az', type: 'icon', icon: 'grid', label: 'a–z', value: 'every game', title: 'a–z', w: 1, h: 1, cls: 'grey', activate: () => openLibrary({ title: 'a–z', sort: 1 }) },
   ]) }, homePivot()];
   if (state.steamGames.length) {
     const lt = libraryTile();
     lt.w = 2; lt.h = 2;
     // Just a few recent games; the library tile has the rest.
-    pivots.push({ key: 'games', title: 'games', tiles: flow([lt, ...sorted(state.steamGames, 'recent').slice(0, 6).map((g) => gameTile(g))]) });
+    const extra = [];
+    const missing = notInstalled();
+    if (missing.length) {
+      extra.push({ key: 'games:notinstalled', type: 'icon', icon: 'downloads', label: 'not installed', value: `${missing.length} games you own`, title: 'not installed',
+        activate: () => openLibrary({ title: 'not installed', list: missing, sort: 1 }) });
+    }
+    pivots.push({ key: 'games', title: 'games', tiles: flow([lt, ...sorted(state.steamGames, 'recent').slice(0, 6).map((g) => gameTile(g)), ...extra]) });
   }
   if (lib.shortcuts.length) pivots.push({ key: 'apps', title: 'apps', tiles: flow(sorted(lib.shortcuts, 'recent').map((g) => gameTile(g))) });
+  const video = videoPivot();
+  if (video) pivots.push(video);
   const streaming = streamingChannel();
   if (streaming) {
     if (streaming.tiles[0] && streaming.tiles[0].type === 'stream') { streaming.tiles[0].w = 2; streaming.tiles[0].h = 2; }
@@ -388,8 +428,40 @@ function buildChannels() {
   const st = steamTiles();
   if (st[0] && st[0].type === 'profile') { st[0].w = 2; st[0].h = 2; }
   pivots.push({ key: 'steam', title: 'steam', tiles: flow(st) });
+  const friends = state.web && state.web.friends ? state.web.friends : [];
+  if (friends.length) {
+    const tiles = friends.slice(0, 18).map((f) => ({
+      key: 'friend:' + f.steamid, type: 'friend', friend: f, caption: f.name, title: f.name,
+      value: f.game ? `playing ${f.game}` : f.state ? 'online' : 'offline',
+      activate: () => openSteam('message', f.steamid),
+    }));
+    pivots.splice(pivots.length - 1, 0, { key: 'social', title: 'social', tiles: flow(tiles) });
+  }
   pivots.push({ key: 'settings', title: 'settings', tiles: flow(settingTiles()) });
   return pivots;
+}
+
+function notInstalled() {
+  const list = (state.web && state.web.notInstalled) || [];
+  return list.map((g) => ({
+    id: 'owned:' + g.appid, kind: 'steam', appid: g.appid, gameId: g.appid, name: g.name, installed: false, notInstalled: true,
+    lastPlayed: g.lastPlayed, playtime: g.playtime, size: 0,
+  }));
+}
+
+async function searchGames() {
+  const q = await openKeyboard({ title: 'search games' });
+  if (!q) return;
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const pool = state.all.concat(notInstalled(), state.streams);
+  const hits = pool.filter((g) => words.every((w) => g.name.toLowerCase().includes(w)));
+  if (!hits.length) { toast(`nothing matches "${q}"`); return; }
+  openLibrary({ title: `"${q}"`, list: hits, sort: 1 });
+}
+
+function gamerscoreText() {
+  const a = state.web && state.web.enabled && state.web.achievements;
+  return a && a.unlocked ? `${a.gamerscore.toLocaleString()} G` : '';
 }
 
 function displayName() {
@@ -409,6 +481,7 @@ async function openSteam(action, id) {
 }
 
 async function launch(g) {
+  if (g.kind === 'jf') { if (g.type === 'Series') openVideoDetail(g); else playVideo(g); return; }
   sound.play('launch');
   wave();
   notify('starting game', g.name, { img: artUrl(g, 'header'), chime: false });
@@ -451,7 +524,7 @@ function focusIndex(ch) {
 
 function caption(t) {
   const main = t.caption || t.label || t.title;
-  const sub = t.type === 'icon' || t.type === 'avatar' ? t.value : '';
+  const sub = t.type === 'icon' || t.type === 'avatar' || t.type === 'friend' ? t.value : '';
   return `<div class="t-cap"><b>${esc(main)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</div>`;
 }
 
@@ -466,6 +539,10 @@ function tileEl(t) {
   } else if (t.type === 'stream' && t.game.boxart) {
     e.append(artEl(t.game, ['boxart']));
     e.append(el('div', 'badge kind', 'stream'));
+  } else if (t.type === 'friend') {
+    if (t.friend.avatar) e.append(el('div', 'art', `<img class="fg" style="object-fit:cover" alt="" src="${esc(t.friend.avatar)}">`));
+    else e.innerHTML = icon('user', 'tile-ico');
+    e.classList.add(t.friend.game ? 'in-game' : t.friend.state ? 'online' : 'offline');
   } else if (t.type === 'avatar') {
     e.append(el('div', 'avatar-tile', avatarPic(look(), 'full', 320, 'av-full')));
   } else if (t.type === 'profile') {
@@ -480,12 +557,18 @@ function tileEl(t) {
     if (t.type === 'stream') e.append(el('div', 'badge kind', 'stream'));
   }
   e.insertAdjacentHTML('beforeend', caption(t.type === 'profile' ? { ...t, type: 'avatar' } : t));
+  if (t.game && t.game.downloading) {
+    const pct = t.game.progress != null ? Math.round(t.game.progress * 100) : null;
+    e.insertAdjacentHTML('beforeend', `<div class="dl-bar"><i style="width:${pct ?? 30}%"></i><span>${pct != null ? pct + '%' : 'downloading'}</span></div>`);
+    if (pct == null) e.classList.add('dl-unknown');
+  }
   return e;
 }
 
 function gamesLine() {
   const n = state.all.length;
-  return `${n} game${n === 1 ? '' : 's'} · ${totalHours()} hrs`;
+  const g = gamerscoreText();
+  return `${n} game${n === 1 ? '' : 's'} · ${g || totalHours() + ' hrs'}`;
 }
 
 function totalHours() {
@@ -814,7 +897,7 @@ function fillGamerpic(box, user) {
 
 function renderGamercard() {
   $('#gamercard .gc-name').textContent = displayName();
-  $('#gamercard .gc-sub').textContent = state.lib.user ? 'online' : 'offline';
+  $('#gamercard .gc-sub').textContent = gamerscoreText() || (state.lib.user ? 'online' : 'offline');
   fillGamerpic($('#gamercard .gc-pic'), state.lib.user);
 }
 
@@ -884,6 +967,7 @@ function menu(items, container, onChange) {
 }
 
 function openDetail(g) {
+  if (g.kind === 'jf') { openVideoDetail(g); return; }
   const root = el('div', 'overlay detail');
   root.append(el('div', 'scrim'));
   const blade = el('div', 'blade');
@@ -906,8 +990,11 @@ function openDetail(g) {
   body.append(list, info);
   blade.append(body);
 
+  const ach = state.web && state.web.achievements.perGame[g.appid];
   const meta = [
-    g.kind === 'shortcut' ? 'non-steam shortcut' : 'steam game',
+    g.notInstalled ? 'not installed' : g.kind === 'shortcut' ? 'non-steam shortcut' : 'steam game',
+    ach ? `${ach.unlocked} of ${ach.total} achievements · ${ach.score}G` : '',
+    g.downloading ? `downloading${g.progress != null ? ` · ${Math.round(g.progress * 100)}%` : ''}` : '',
     timeAgo(g.lastPlayed),
     hours(g.playtime),
     g.size ? `${bytes(g.size)} on disk` : '',
@@ -916,7 +1003,9 @@ function openDetail(g) {
   info.innerHTML = `<h1>${esc(g.name)}</h1><ul>${meta.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>`
     + (g.installDir ? `<p class="path">${esc(g.installDir)}</p>` : '');
 
-  const items = [
+  const items = g.notInstalled ? [
+    { icon: 'downloads', label: 'install', run: () => { popOverlay({ silent: true }); openSteam('install', g.appid); notify('installing', g.name, { img: artUrl(g, 'header') }); } },
+  ] : [
     { icon: 'play', label: 'play', note: g.needsUpdate ? 'steam updates it first' : '', run: () => { popOverlay({ silent: true }); launch(g); } },
     { icon: 'pin', label: isPinned(g) ? 'unpin from spotlight' : 'pin to spotlight', run: () => { popOverlay({ silent: true }); togglePin(g); } },
   ];
@@ -944,7 +1033,7 @@ function openDetail(g) {
   });
 }
 
-function openLibrary({ title = 'game library', filter = null, sort: startSort = null } = {}) {
+function openLibrary({ title = 'game library', filter = null, sort: startSort = null, list = null } = {}) {
   const root = el('div', 'overlay library');
   const panel = el('div', 'lib-panel');
   root.append(panel);
@@ -966,7 +1055,7 @@ function openLibrary({ title = 'game library', filter = null, sort: startSort = 
 
   function renderGrid() {
     const keep = items[i] && items[i].id;
-    items = sorted(filter ? state.all.concat(state.streams).filter(filter) : state.all, SORTS[sort][0]);
+    items = sorted(list || (filter ? state.all.concat(state.streams).filter(filter) : state.all), SORTS[sort][0]);
     grid.innerHTML = '';
     cards = items.map((g, k) => {
       const c = el('div', 'card');
@@ -1064,6 +1153,7 @@ function openGuide() {
       { icon: 'grid', label: 'game library', note: `${state.all.length}`, run: () => { closeAll(); openLibrary(); } },
       { icon: 'user', label: 'my avatar', run: () => { closeAll(); openAvatarEditor(); } },
       { icon: 'image', label: 'change gamerpic', run: () => { closeAll(); openGamerpics(); } },
+      { icon: 'friends', label: 'switch profile', run: () => { closeAll(); openSignIn(); } },
       { icon: 'bigpicture', label: 'steam big picture', run: () => { closeAll(); openSteam('bigpicture'); } },
       { icon: 'fullscreen', label: 'toggle full screen', run: () => api.toggleFullscreen() },
       { icon: 'power', label: 'quit nostalgiaconsole', run: () => api.quit() },
@@ -1110,6 +1200,298 @@ function openGuide() {
     },
     hints: () => [['a', 'select'], ['lb', 'tabs'], ['b', 'close']],
   });
+}
+
+// ---------- video (Jellyfin) ----------
+
+function jfItems(list) {
+  return (list || []).map((v) => ({ ...v, kind: 'jf', appid: v.id, gameId: v.id, lastPlayed: 0, playtime: 0, size: 0 }));
+}
+
+async function loadVideo() {
+  if (!state.keys || !state.keys.jellyfin) { state.video = null; return; }
+  const r = await api.jfShelves().catch((e) => ({ error: String(e) }));
+  if (r && r.error) { state.video = { error: r.error }; return; }
+  state.video = r ? { resume: jfItems(r.resume), nextUp: jfItems(r.nextUp), movies: jfItems(r.movies), shows: jfItems(r.shows) } : null;
+}
+
+function videoTile(v, extra = {}) {
+  const sub = v.episode ? `${v.series} · ${v.episode}` : v.year ? String(v.year) : '';
+  return { key: 'jf:' + v.id + (extra.k || ''), type: 'game', game: v, title: v.name, caption: v.episode ? `${v.series}` : v.name, sub, ...extra };
+}
+
+function videoPivot() {
+  const v = state.video;
+  if (!state.keys || !state.keys.jellyfin) return null;
+  if (!v || v.error) {
+    return { key: 'video', title: 'video', tiles: flow([{ key: 'video:error', type: 'icon', icon: 'info', label: 'jellyfin', value: v && v.error ? 'could not connect' : 'loading…', title: 'jellyfin', activate: async () => { await loadVideo(); rebuild(); } }]) };
+  }
+  const tiles = [];
+  const cont = v.resume.concat(v.nextUp.filter((n) => !v.resume.some((r) => r.id === n.id)));
+  if (cont[0]) tiles.push(videoTile(cont[0], { hero: true, w: 2, h: 2, caption: `continue ${cont[0].episode ? cont[0].series : cont[0].name}` }));
+  for (const x of cont.slice(1, 5)) tiles.push(videoTile(x));
+  tiles.push({ key: 'video:movies', type: 'icon', icon: 'bigpicture', label: 'movies', value: `${v.movies.length} new`, title: 'movies', activate: () => openLibrary({ title: 'movies', list: v.movies, sort: 0 }) });
+  tiles.push({ key: 'video:shows', type: 'icon', icon: 'library', label: 'tv shows', value: `${v.shows.length} new`, title: 'tv shows', activate: () => openLibrary({ title: 'tv shows', list: v.shows, sort: 0 }) });
+  for (const x of v.movies.slice(0, 3)) tiles.push(videoTile(x, { k: ':m' }));
+  return { key: 'video', title: 'video', tiles: flow(tiles) };
+}
+
+function fmtTime(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s2 = sec % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s2).padStart(2, '0');
+}
+
+function openVideoDetail(v) {
+  const root = el('div', 'overlay detail');
+  root.append(el('div', 'scrim'));
+  const blade = el('div', 'blade');
+  root.append(blade);
+  root.querySelector('.scrim').addEventListener('click', () => popOverlay());
+  const hero = el('div', 'hero');
+  hero.append(artEl(v, ['hero', 'portrait']));
+  hero.append(el('div', 'logo-text', esc(v.episode ? v.series : v.name)));
+  blade.append(hero);
+  const body = el('div', 'detail-body');
+  const list = el('div', 'menu');
+  const info = el('div', 'detail-info');
+  body.append(list, info);
+  blade.append(body);
+  const meta = [v.episode ? `${v.episode} · ${v.name}` : '', v.year, v.runtime ? `${v.runtime} min` : '', v.progress ? `${v.progress}% watched` : ''].filter(Boolean);
+  info.innerHTML = `<h1>${esc(v.name)}</h1><ul>${meta.map((m) => `<li>${esc(String(m))}</li>`).join('')}</ul><p class="overview">${esc(v.overview || '')}</p>`;
+  const items = [];
+  if (v.type === 'Series') {
+    items.push({ icon: 'library', label: 'episodes', run: async () => { const eps = jfItems(await api.jfEpisodes(v.id)); if (!eps.length) { toast('no episodes'); return; } openLibrary({ title: v.name, list: eps, sort: 1 }); } });
+  } else {
+    if (v.position) items.push({ icon: 'play', label: `resume from ${fmtTime(v.position / 1e7)}`, run: () => { popOverlay({ silent: true }); playVideo(v); } });
+    items.push({ icon: 'play', label: v.position ? 'play from the start' : 'play', run: () => { popOverlay({ silent: true }); playVideo({ ...v, position: 0 }); } });
+  }
+  items.push({ icon: 'friends', label: 'open in jellyfin (watch party)', run: () => api.jfOpenWeb(v.id) });
+  items.push({ icon: 'library', label: 'back', run: () => popOverlay() });
+  const m = menu(items, list);
+  pushOverlay({
+    el: root,
+    handle(a) {
+      if (a === 'up') m.move(-1);
+      else if (a === 'down') m.move(1);
+      else if (a === 'a') m.run();
+      else if (a === 'b' || a === 'left') popOverlay();
+    },
+    hints: () => [['a', 'select'], ['b', 'back']],
+  });
+}
+
+async function playVideo(v) {
+  const { default: Hls } = await import('./vendor/hls.mjs');
+  sound.play('launch');
+  const sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const root = el('div', 'overlay player');
+  const video = document.createElement('video');
+  video.autoplay = true;
+  root.append(video);
+  const ui = el('div', 'pl-ui', `<div class="pl-title">${esc(v.episode ? `${v.series} · ${v.episode} · ${v.name}` : v.name)}</div><div class="pl-bar"><i></i></div><div class="pl-time"></div>`);
+  root.append(ui);
+  const src = `nostalgia://jf/Videos/${v.id}/master.m3u8?MediaSourceId=${v.id}&PlaySessionId=${sid}&DeviceId=nostalgiaconsole&VideoCodec=h264&AudioCodec=aac,mp3&TranscodingMaxAudioChannels=2&SegmentContainer=ts&MinSegments=1&BreakOnNonKeyFrames=True&VideoBitrate=15000000&AudioBitrate=192000`;
+  const hls = new Hls({ enableWorker: false, startPosition: v.position ? v.position / 1e7 : -1 });
+  hls.loadSource(src);
+  hls.attachMedia(video);
+  hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) { toast('could not play this video'); stop(); } });
+  const ticks = () => Math.round(video.currentTime * 1e7);
+  const report = (kind) => api.jfReport(kind, { ItemId: v.id, MediaSourceId: v.id, PlaySessionId: sid, PositionTicks: ticks(), IsPaused: video.paused, CanSeek: true, PlayMethod: 'Transcode' });
+  video.addEventListener('playing', () => report('start'), { once: true });
+  const timer = setInterval(() => report('progress'), 10000);
+  let hideAt = Date.now() + 3000;
+  const draw = () => {
+    if (!root.isConnected) return;
+    const d = video.duration || (v.runtime * 60) || 1;
+    ui.querySelector('.pl-bar i').style.width = Math.min(100, (video.currentTime / d) * 100) + '%';
+    ui.querySelector('.pl-time').textContent = `${fmtTime(video.currentTime)} / ${fmtTime(d)}${video.paused ? ' · paused' : ''}`;
+    ui.classList.toggle('hide', !video.paused && Date.now() > hideAt);
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
+  let stopped = false;
+  function stop() {
+    if (stopped) return;
+    stopped = true;
+    clearInterval(timer);
+    report('stop');
+    hls.destroy();
+    popOverlay({ silent: true });
+    loadVideo().then(() => rebuild());
+  }
+  pushOverlay({
+    el: root,
+    handle(a) {
+      hideAt = Date.now() + 3000;
+      if (a === 'a' || a === 'start') { if (video.paused) video.play(); else video.pause(); }
+      else if (a === 'left') video.currentTime = Math.max(0, video.currentTime - 10);
+      else if (a === 'right') video.currentTime += 10;
+      else if (a === 'lb') video.currentTime = Math.max(0, video.currentTime - 60);
+      else if (a === 'rb') video.currentTime += 60;
+      else if (a === 'b') stop();
+    },
+    hints: () => [['a', 'pause'], ['lb', '−1 min'], ['rb', '+1 min'], ['b', 'stop']],
+    onClose: () => { if (!stopped) { stopped = true; clearInterval(timer); report('stop'); hls.destroy(); } },
+  });
+}
+
+// ---------- on-screen keyboard ----------
+// Controller typing: D-pad moves, A types, X deletes, Y space, B cancels,
+// Start (or the done key) finishes. resolve(null) on cancel.
+
+const KEY_ROWS = {
+  abc: ['1234567890', 'qwertyuiop', 'asdfghjkl-', 'zxcvbnm._@'],
+  sym: ['!#$%&*()+=', '/:;?[]{}~^', '|<>"\',`\'\\', 'QWERTYUIOP'],
+};
+
+function openKeyboard({ title, value = '', secret = false, hint = '', onChange = null } = {}) {
+  return new Promise((resolve) => {
+    sound.play('open');
+    let text = value;
+    let mode = 'abc';
+    let r = 1;
+    let c = 0;
+    const root = el('div', 'overlay kb');
+    root.append(el('div', 'scrim'));
+    const panel = el('div', 'kb-panel');
+    root.append(panel);
+    panel.append(el('div', 'kb-title', esc(title)));
+    const field = el('div', 'kb-field');
+    panel.append(field);
+    if (hint) panel.append(el('div', 'kb-hint', esc(hint)));
+    const grid = el('div', 'kb-grid');
+    panel.append(grid);
+    const specials = [['space', ' '], ['⌫', 'del'], ['abc/#', 'mode'], ['paste', 'paste'], ['done', 'done']];
+
+    function rows() { return [...KEY_ROWS[mode].map((row) => [...row].map((ch) => [ch, ch])), specials]; }
+    function draw() {
+      field.textContent = secret ? '•'.repeat(text.length) : text;
+      field.classList.toggle('empty', !text);
+      grid.innerHTML = '';
+      rows().forEach((row, ri) => {
+        const line = el('div', 'kb-row');
+        row.forEach(([label], ci) => {
+          const k = el('button', 'kb-key' + (ri === r && ci === c ? ' on' : '') + (ri === rows().length - 1 ? ' wide' : ''), esc(label));
+          k.tabIndex = -1;
+          k.addEventListener('click', () => { r = ri; c = ci; press(); });
+          line.append(k);
+        });
+        grid.append(line);
+      });
+      if (onChange) onChange(text);
+    }
+    async function press() {
+      const [, v] = rows()[r][c];
+      if (v === 'del') text = text.slice(0, -1);
+      else if (v === 'mode') mode = mode === 'abc' ? 'sym' : 'abc';
+      else if (v === 'paste') { try { text += (await navigator.clipboard.readText()).trim(); } catch { toast('nothing to paste'); } }
+      else if (v === 'done') { finish(true); return; }
+      else text += v;
+      sound.play('move');
+      draw();
+    }
+    function finish(ok) {
+      popOverlay({ silent: !ok });
+      if (ok) sound.play('select');
+      resolve(ok ? text : null);
+    }
+    window.addEventListener('keydown', function typing(e) {
+      // A physical keyboard types straight in.
+      if (!root.isConnected) { window.removeEventListener('keydown', typing, true); return; }
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) { text += e.key; draw(); e.stopPropagation(); e.preventDefault(); }
+      else if (e.key === 'Backspace') { text = text.slice(0, -1); draw(); e.stopPropagation(); e.preventDefault(); }
+      else if (e.key === 'Enter') { finish(true); e.stopPropagation(); e.preventDefault(); }
+      else if (e.key === 'Escape') { finish(false); e.stopPropagation(); e.preventDefault(); }
+    }, true);
+    draw();
+    pushOverlay({
+      el: root,
+      handle(a) {
+        const R = rows();
+        if (a === 'up') r = Math.max(0, r - 1);
+        else if (a === 'down') r = Math.min(R.length - 1, r + 1);
+        else if (a === 'left') c = Math.max(0, c - 1);
+        else if (a === 'right') c = c + 1;
+        else if (a === 'a') { press(); return; }
+        else if (a === 'x') { text = text.slice(0, -1); sound.play('back'); }
+        else if (a === 'y') text += ' ';
+        else if (a === 'start') { finish(true); return; }
+        else if (a === 'b') { finish(false); return; }
+        else if (a === 'lb' || a === 'rb') mode = mode === 'abc' ? 'sym' : 'abc';
+        c = Math.min(c, rows()[r].length - 1);
+        if (['up', 'down', 'left', 'right'].includes(a)) sound.play('move');
+        draw();
+      },
+      hints: () => [['a', 'type'], ['x', 'delete'], ['y', 'space'], ['start', 'done'], ['b', 'cancel']],
+    });
+  });
+}
+
+// ---------- profiles / sign in ----------
+
+function profilePic(p) {
+  if (p.gamerpic && p.gamerpic !== 'avatar') return `<img alt="" src="nostalgia://gamerpics/${encodeURIComponent(p.gamerpic)}">`;
+  return avatarPic(normalizeLook(p.avatarLook), 'head', 160, 'gamerpic-av');
+}
+
+function openSignIn({ startup = false } = {}) {
+  if (state.overlays.some((o) => o.signIn)) return;
+  sound.play('open');
+  const profiles = state.settings.profiles.length ? state.settings.profiles : [{ id: '', name: displayName(), gamerpic: state.settings.gamerpic, avatarLook: state.settings.avatarLook }];
+  const root = el('div', 'overlay library signin');
+  const panel = el('div', 'lib-panel');
+  root.append(panel);
+  panel.append(el('div', 'lib-head', `<h1>${startup ? 'who\'s playing?' : 'switch profile'}</h1>`));
+  const grid = el('div', 'lib-grid pic-grid');
+  const cap = el('div', 'lib-caption');
+  panel.append(grid, cap);
+  const items = [...profiles.map((p) => ({ p })), { add: true }];
+  let i = Math.max(0, profiles.findIndex((p) => p.id === state.settings.profile));
+  const cards = items.map((it, k) => {
+    const c = el('div', 'card pic' + (it.add ? ' folder' : ''), it.add ? icon('user', 'pic-ico') : profilePic(it.p));
+    c.append(el('div', 'card-name', esc(it.add ? 'add profile' : it.p.name)));
+    c.addEventListener('click', () => { if (k === i) choose(); else { focus(k); sound.play('move'); } });
+    grid.append(c);
+    return c;
+  });
+  function focus(n) {
+    i = Math.max(0, Math.min(items.length - 1, n));
+    cards.forEach((c, k) => c.classList.toggle('focused', k === i));
+    const it = items[i];
+    cap.innerHTML = `<div class="cap-title">${esc(it.add ? 'add profile' : it.p.name)}</div><div class="cap-sub">${it.add ? 'everyone gets their own avatar, gamerpic, pins and theme' : it.p.id === state.settings.profile ? 'signed in' : ''}</div>`;
+  }
+  async function choose() {
+    const it = items[i];
+    if (it.add) {
+      const name = await openKeyboard({ title: 'profile name' });
+      if (!name) return;
+      state.settings = await api.createProfile(name);
+    } else if (it.p.id && it.p.id !== state.settings.profile) {
+      state.settings = await api.switchProfile(it.p.id);
+    }
+    sound.play('select');
+    applySettings();
+    rebuild();
+    popOverlay({ silent: true });
+    notify('signed in', displayName(), { chime: true });
+  }
+  pushOverlay({
+    el: root,
+    signIn: true,
+    handle(a) {
+      const before = i;
+      if (a === 'left' || a === 'up') focus(i - 1);
+      else if (a === 'right' || a === 'down') focus(i + 1);
+      else if (a === 'a') { choose(); return; }
+      else if (a === 'b' && !startup) { popOverlay(); return; }
+      if (i !== before) sound.play('move');
+    },
+    hints: () => (startup ? [['a', 'sign in']] : [['a', 'sign in'], ['b', 'back']]),
+  });
+  requestAnimationFrame(() => focus(i));
 }
 
 // ---------- gamerpic picker ----------
@@ -1412,8 +1794,12 @@ async function boot() {
   startInput(handle);
   api.soundPack().then((files) => sound.loadPack(files)).then((n) => { state.packCount = n; if (n) rebuild(); }).catch(() => {});
   api.onWelcomeBack(() => { notify('welcome back', displayName(), { chime: true }); });
+  api.onNotice(({ title, msg, img }) => notify(title, msg, { img }));
+  api.onWeb((d) => { state.web = d; rebuild(); });
+  Promise.all([api.keys(), api.web()]).then(([k, w]) => { state.keys = k; state.web = w; rebuild(); loadVideo().then(() => rebuild()); }).catch(() => {});
   $('#avatar').addEventListener('click', () => { if (!state.overlays.length) openAvatarEditor(); });
   if (settings.intro && (!CAPTURE || params.has('intro'))) runIntro();
+  if (settings.profiles.length > 1 && !CAPTURE) setTimeout(() => openSignIn({ startup: true }), settings.intro ? 3100 : 200);
   document.body.classList.add('ready');
 }
 

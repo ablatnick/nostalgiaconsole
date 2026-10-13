@@ -8,6 +8,10 @@ const { ArtResolver } = require('./art');
 const { openSteam } = require('./launch');
 const { Settings } = require('./settings');
 const { Moonlight } = require('./moonlight');
+const { SteamWeb } = require('./steamweb');
+const { Secrets } = require('./secrets');
+const { Jellyfin } = require('./jellyfin');
+const { screen } = require('electron');
 const { execFile } = require('child_process');
 const os = require('os');
 const vdf = require('./vdf');
@@ -29,17 +33,22 @@ const opts = {
   delay: Number(arg('delay') || 2500),
   windowed: !!arg('windowed'),
   avatarShot: arg('avatar-shot'),
+  // Screenshots only: canned Steam Web / Jellyfin data (test/web-fixture.json).
+  webFixture: arg('web-fixture'),
 };
 if (arg('user-data')) app.setPath('userData', path.resolve(arg('user-data')));
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'nostalgia', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+  { scheme: 'nostalgia', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
 ]);
 
 let win = null;
 let settings = null;
 let library = null;
 const art = new ArtResolver(net);
+let secrets = null;
+let steamWeb = null;
+let jellyfin = null;
 const moonlight = new Moonlight();
 const watchers = [];
 
@@ -47,7 +56,7 @@ const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.json': 'application/json',
 };
-const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' nostalgia: data:; media-src 'self' nostalgia:; font-src 'self'; connect-src 'self' nostalgia:";
+const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' nostalgia: data:; media-src 'self' nostalgia: blob:; font-src 'self'; connect-src 'self' nostalgia:";
 const SOUND_NAMES = ['move', 'channel', 'select', 'back', 'open', 'close', 'error', 'notify', 'launch', 'intro'];
 const SOUND_EXT = { '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.flac': 'audio/flac' };
 
@@ -79,8 +88,25 @@ function avatarFile(id64) {
   return path.join(app.getPath('userData'), 'avatars', id64 + '.jpg');
 }
 
+// The page (nostalgia://ui) fetches from other nostalgia:// hosts (sounds,
+// video), which counts as cross-origin.
 async function serve(request) {
+  const res = await route(request);
+  const headers = new Headers(res.headers);
+  headers.set('access-control-allow-origin', 'nostalgia://ui');
+  return new Response(res.body, { status: res.status, headers });
+}
+
+const friendPics = new Map();
+async function route(request) {
   const url = new URL(request.url);
+  if (url.host === 'jf') return jellyfin.proxy(url.pathname + url.search);
+  if (url.host === 'friend') {
+    const id = url.pathname.replace(/^\/+/, '');
+    const src = friendPics.get(id);
+    if (!src) return new Response('not found', { status: 404 });
+    return net.fetch(src);
+  }
   if (url.host === 'ui') {
     const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html';
     const file = path.resolve(RENDERER_DIR, rel);
@@ -119,6 +145,8 @@ async function serve(request) {
     }
     if ((source === 'steam' || source === 'shortcut') && id && kind) return art.respond(source, id, kind);
     if (source === 'moonlight' && /^\d+$/.test(kind || '')) {
+      const direct = await moonlight.boxartDirect(id, kind);
+      if (direct) return new Response(direct, { headers: { 'content-type': 'image/png' } });
       const file = moonlight.boxartPath(id, kind);
       if (file) {
         return new Response(await fs.promises.readFile(file), {
@@ -149,6 +177,7 @@ function refresh(push) {
   library = steam.loadLibrary(opts.steamRoot);
   art.setLibrary(library);
   watchLibraries();
+  checkDownloads();
   moonlight.loadCached();
   if (push) pushLibrary();
   if (settings.values.moonlight) moonlight.refresh().then((changed) => changed && pushLibrary());
@@ -253,7 +282,167 @@ async function runCapture() {
   app.exit(0);
 }
 
+// ---------- Steam Web API ----------
+
+let fixture = null;
+function webFixture() {
+  if (!opts.capture || typeof opts.webFixture !== 'string') return null;
+  if (!fixture) fixture = JSON.parse(fs.readFileSync(path.resolve(opts.webFixture), 'utf8'));
+  return fixture;
+}
+
+function webData() {
+  if (webFixture()) return webFixture().web;
+  const owned = steamWeb.cache.owned ? steamWeb.cache.owned.games : [];
+  const installed = new Set((library.games || []).filter((g) => g.installed).map((g) => g.appid));
+  const people = steamWeb.cache.friends ? steamWeb.cache.friends.people : [];
+  for (const p of people) if (/^https:\/\/avatars\.(steamstatic|akamai\.steamstatic|cloudflare\.steamstatic)\.com\//.test(p.avatar)) friendPics.set(p.steamid, p.avatar);
+  return {
+    enabled: secrets.status().steam,
+    notInstalled: owned.filter((g) => !installed.has(g.appid) && !steam.isTool(g.appid, g.name)),
+    achievements: steamWeb.summary(),
+    friends: people.map((p) => ({ ...p, avatar: friendPics.has(p.steamid) ? `nostalgia://friend/${p.steamid}` : '' })),
+  };
+}
+
+let webBusy = false;
+async function refreshWeb(force = false) {
+  const key = secrets.get('steamApiKey');
+  const user = library && library.user;
+  if (!key || !user || webBusy || opts.capture) return webData();
+  webBusy = true;
+  try {
+    const stale = (x, ms) => force || !x || Date.now() - x.at > ms;
+    if (stale(steamWeb.cache.owned, 6 * 3600e3)) await steamWeb.owned(key, user.steamId64);
+    if (stale(steamWeb.cache.friends, 5 * 60e3)) await steamWeb.friends(key, user.steamId64).catch(() => {});
+    const played = (steamWeb.cache.owned ? steamWeb.cache.owned.games : []).filter((g) => g.playtime > 0).sort((a, b) => b.lastPlayed - a.lastPlayed).map((g) => g.appid);
+    await steamWeb.refreshAchievements(key, user.steamId64, played, { maxAge: force ? 0 : 6 * 3600e3 });
+  } catch (e) {
+    if (e.code === 'badkey') sendNotice('steam rejected the api key', 'check it in settings');
+  } finally {
+    webBusy = false;
+  }
+  const data = webData();
+  if (win && !win.isDestroyed()) win.webContents.send('web', data);
+  return data;
+}
+
+// ---------- notifications over games ----------
+// A small always-on-top window, so pop-ups show while a game has the
+// screen (achievements, downloads). The dashboard shows its own when it is
+// in front.
+
+let overlay = null;
+function overlayWindow() {
+  if (overlay && !overlay.isDestroyed()) return overlay;
+  const d = screen.getPrimaryDisplay().workArea;
+  overlay = new BrowserWindow({
+    width: 640, height: 130, x: Math.round(d.x + (d.width - 640) / 2), y: Math.round(d.y + d.height - 200),
+    transparent: true, frame: false, resizable: false, focusable: false, skipTaskbar: true, show: false,
+    alwaysOnTop: true, hasShadow: false, backgroundColor: '#00000000',
+    webPreferences: { preload: path.join(__dirname, '..', 'preload.js'), contextIsolation: true, sandbox: true },
+  });
+  overlay.setAlwaysOnTop(true, 'screen-saver');
+  overlay.setIgnoreMouseEvents(true);
+  overlay.loadURL('nostalgia://ui/notify.html');
+  return overlay;
+}
+
+function sendNotice(title, msg, img = null) {
+  if (opts.capture) return;
+  if (win && !win.isDestroyed() && win.isFocused()) {
+    win.webContents.send('notice', { title, msg, img });
+    return;
+  }
+  const o = overlayWindow();
+  const show = () => { o.showInactive(); o.webContents.send('notice', { title, msg, img }); setTimeout(() => { if (!o.isDestroyed()) o.hide(); }, 6000); };
+  if (o.webContents.isLoading()) o.webContents.once('did-finish-load', show); else show();
+}
+
+// While a game runs, check its achievements every minute.
+let achTimer = null;
+function watchAchievements(appid) {
+  clearInterval(achTimer);
+  const key = secrets.get('steamApiKey');
+  const user = library && library.user;
+  if (!key || !user || !/^\d+$/.test(String(appid))) return;
+  steamWeb.newUnlocks(key, user.steamId64, String(appid)).catch(() => {});
+  achTimer = setInterval(async () => {
+    const running = await runningAppId();
+    if (!running) { clearInterval(achTimer); return; }
+    try {
+      for (const a of await steamWeb.newUnlocks(key, user.steamId64, String(appid))) sendNotice('achievement unlocked', `${a.name} · 10G`);
+    } catch { /* offline */ }
+  }, 60e3);
+}
+
+// Downloads: notice when a game that was downloading becomes installed.
+let lastDownloads = new Map();
+function checkDownloads() {
+  const now = new Map((library.games || []).map((g) => [g.appid, g]));
+  for (const [id, before] of lastDownloads) {
+    const g = now.get(id);
+    if (before.downloading && g && !g.downloading && g.installed) sendNotice(before.installed ? 'update finished' : 'download complete', g.name);
+  }
+  lastDownloads = new Map([...now].map(([id, g]) => [id, { downloading: g.downloading, installed: g.installed }]));
+}
+
+// ---------- updates and start at login ----------
+
+async function checkUpdate() {
+  try {
+    const res = await net.fetch('https://api.github.com/repos/ablatnick/nostalgiaconsole/releases/latest', { headers: { accept: 'application/vnd.github+json' } });
+    if (!res.ok) return null; // private repo or no releases yet
+    const r = await res.json();
+    const latest = String(r.tag_name || '').replace(/^v/, '');
+    const newer = (a, b) => { const x = a.split('.').map(Number); const y = b.split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+    if (latest && newer(latest, app.getVersion())) return { version: latest, url: r.html_url };
+  } catch { /* offline */ }
+  return null;
+}
+
+function applyAutostart(on) {
+  if (opts.capture) return;
+  if (process.platform === 'win32' || process.platform === 'darwin') {
+    app.setLoginItemSettings({ openAtLogin: !!on });
+    return;
+  }
+  const file = path.join(os.homedir(), '.config/autostart/nostalgiaconsole.desktop');
+  const exe = process.env.APPIMAGE || process.execPath;
+  if (on) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, `[Desktop Entry]\nType=Application\nName=NostalgiaConsole\nExec="${exe}"\nX-GNOME-Autostart-enabled=true\n`);
+  } else {
+    try { fs.unlinkSync(file); } catch { /* not there */ }
+  }
+}
+
 ipcMain.handle('library:get', () => publicLibrary());
+ipcMain.handle('keys:status', () => (webFixture() ? { steam: true, jellyfin: true, jellyfinUrl: 'http://jellyfin.test' } : secrets.status()));
+ipcMain.handle('profile:create', (_e, name) => settings.createProfile(name));
+ipcMain.handle('profile:switch', (_e, id) => settings.switchProfile(String(id)));
+ipcMain.handle('profile:remove', (_e, id) => settings.removeProfile(String(id)));
+ipcMain.handle('keys:set', async (_e, patch) => {
+  secrets.set(patch || {});
+  jellyfin.userId = null;
+  if (patch && 'steamApiKey' in patch) refreshWeb(true);
+  return secrets.status();
+});
+ipcMain.handle('web:get', () => webData());
+ipcMain.handle('web:refresh', () => refreshWeb(true));
+ipcMain.handle('jf:shelves', async () => {
+  if (webFixture()) return webFixture().video;
+  if (!jellyfin.configured()) return null;
+  try { return await jellyfin.shelves(settings.values.jellyfinUser); } catch (e) { return { error: e.message }; }
+});
+ipcMain.handle('jf:episodes', (_e, id) => (/^[\w-]+$/.test(String(id)) ? jellyfin.episodes(String(id)) : []));
+ipcMain.handle('jf:report', (_e, kind, body) => jellyfin.report(kind, body));
+ipcMain.handle('jf:openWeb', (_e, id) => {
+  if (!jellyfin.configured() || !/^[\w-]+$/.test(String(id))) return;
+  const w = new BrowserWindow({ fullscreen: true, autoHideMenuBar: true, backgroundColor: '#000', webPreferences: { contextIsolation: true, sandbox: true } });
+  w.loadURL(jellyfin.webUrl(String(id)));
+});
+ipcMain.handle('update:check', () => checkUpdate());
 ipcMain.handle('library:refresh', () => { refresh(false); return publicLibrary(); });
 ipcMain.handle('settings:get', () => settings.values);
 ipcMain.handle('settings:set', (_e, patch) => {
@@ -261,6 +450,7 @@ ipcMain.handle('settings:set', (_e, patch) => {
   const next = settings.update(patch);
   if (next.communityAvatar && !before.communityAvatar) fetchAvatar();
   if (next.moonlight && !before.moonlight) moonlight.refresh(true).then(() => pushLibrary());
+  if (next.autostart !== before.autostart) applyAutostart(next.autostart);
   return next;
 });
 // Steam's "running game" value: the registry on Windows, registry.vdf
@@ -322,7 +512,7 @@ function comeBack() {
 ipcMain.handle('steam:open', async (_e, action, id) => {
   if (opts.capture) return 'capture';
   const url = await openSteam(shell, library.root, action, id);
-  if (action === 'run') watchGame();
+  if (action === 'run') { watchGame(); watchAchievements(id); }
   if (action === 'run' && win) {
     const after = settings.values.afterLaunch;
     if (after === 'minimize') setTimeout(() => win && !win.isDestroyed() && win.minimize(), 1500);
@@ -380,10 +570,17 @@ function migrateOldSettings() {
 app.whenReady().then(() => {
   migrateOldSettings();
   settings = new Settings(app.getPath('userData'));
+  secrets = new Secrets(app.getPath('userData'));
+  steamWeb = new SteamWeb(net, app.getPath('userData'));
+  jellyfin = new Jellyfin(net, secrets);
   protocol.handle('nostalgia', serve);
   refresh(false);
   createWindow();
   fetchAvatar();
+  if (!opts.capture) {
+    setTimeout(() => refreshWeb(), 4000);
+    setInterval(() => refreshWeb(), 5 * 60e3);
+  }
 });
 
 app.on('window-all-closed', () => app.quit());
