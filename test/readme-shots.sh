@@ -4,12 +4,15 @@
 # Usage: test/readme-shots.sh [name ...]   (no names = all)
 #   OUT=dir       write somewhere else (the CI smoke test does)
 #   SETTINGS=json extra settings, e.g. SETTINGS='"tileSize":"tiny",'
+#   ELECTRON_FLAGS extra Chromium flags (CI: software WebGL)
 # Exits non-zero if any page logged an error or a shot is missing.
 cd "$(dirname "$0")/.."
 out=${OUT:-docs/screenshots}
 ud=test/.userdata-readme
 log=$(mktemp)
-trap 'rm -f "$log"' EXIT
+start=$(mktemp)   # untouched marker: every shot must be newer than this
+trap 'rm -f "$log" "$start"' EXIT
+sleep 1
 mkdir -p "$out"
 
 # The same four profiles every run, so the sign-in shot has a lineup.
@@ -28,9 +31,9 @@ shot() {
   printf '{"theme":"%s","intro":true,"moonlight":false,%s%s}\n' "$theme" "${SETTINGS:-}" "$PROFILES" > "$ud/settings.json"
   echo "$name"
   # Extra args go first: the app reads the first copy of each flag.
-  timeout 90 npx electron . "$@" --no-sandbox --steam-root=test/fixture/Steam --user-data="$ud" \
+  timeout 90 npx electron . "$@" ${ELECTRON_FLAGS:-} --no-sandbox --steam-root=test/fixture/Steam --user-data="$ud" \
     --web-fixture=test/web-fixture.json --capture="$out/$name.png" --keys="$keys" --size=1280x720 --delay=3500 2>&1 | grep -iv 'gtk\|dbus\|gles\|viz' | tee -a "$log"
-  [ "$out/$name.png" -nt "$log" ] || echo "[missing] $name.png" | tee -a "$log"
+  [ "$out/$name.png" -nt "$start" ] || echo "[missing] $name.png" | tee -a "$log"
 }
 
 only="$*"

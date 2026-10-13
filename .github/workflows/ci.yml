@@ -21,12 +21,21 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: sudo apt-get update && sudo apt-get install -y xvfb
+      # The runners have no GPU: SwiftShader gives software WebGL so the 3D
+      # avatars render.
       - name: Smoke test every screen
         run: xvfb-run -a test/readme-shots.sh
         env:
           OUT: smoke
+          ELECTRON_FLAGS: --enable-unsafe-swiftshader --use-angle=swiftshader
+      # Without WebGL the avatars fall back to SVG pictures.
+      - name: Smoke test without WebGL
+        run: xvfb-run -a test/readme-shots.sh home steam signin avatar-editor
+        env:
+          OUT: smoke/no-webgl
+          ELECTRON_FLAGS: --disable-gpu --disable-software-rasterizer
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: smoke-screenshots
-          path: smoke/*.png
+          path: smoke/
