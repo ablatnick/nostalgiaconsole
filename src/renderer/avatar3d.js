@@ -132,6 +132,19 @@ function hairline(front, side, back) {
   return f;
 }
 
+// A hood that hugs the head and opens in an oval around the face.
+function snugHood(head, material) {
+  const keep = (x, y, z) => y > -0.62 && !(z > 0.25 && (x / 0.66) ** 2 + ((y + 0.06) / 0.74) ** 2 < 1);
+  const hood = mesh(shellGeometry(keep), material, [0, 0, -0.008], [HEAD[0] * 1.12, HEAD[1] * 1.1, HEAD[2] * 1.12]);
+  hood.material.side = THREE.DoubleSide;
+  head.add(hood);
+  // A soft rim around the face opening.
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1, 0.06, 10, 48), material);
+  rim.position.set(0, -0.012, 0.17);
+  rim.scale.set(0.165, 0.2, 0.1);
+  head.add(rim);
+}
+
 // A sci-fi helmet with a wide tinted visor (power armor costumes and the
 // helmet hat).
 function spaceHelmet(head, shellM, visorColor = 0xe0a020) {
@@ -522,19 +535,17 @@ function costumeHead(l, c, head) {
     }
     case 'hood': {
       const cloth = mat(c.suit, { roughness: 0.85 });
-      // Open at the front (+z) so the face shows.
-      const hood = mesh(new THREE.SphereGeometry(1, 32, 20, Math.PI * 0.72, Math.PI * 1.56, 0, Math.PI * 0.74), cloth, [0, 0.03, -0.02], [0.29, 0.32, 0.3]);
-      hood.material.side = THREE.DoubleSide;
-      head.add(hood);
+      snugHood(head, cloth);
       return 'nohair';
     }
     case 'wizard': {
       const cloth = mat(c.suit, { roughness: 0.75 });
-      head.add(mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.02, 40), cloth, [0, 0.17, -0.01]));
-      const cone = mesh(new THREE.ConeGeometry(0.2, 0.5, 32), cloth, [0, 0.42, -0.03]);
+      head.add(mesh(shellGeometry((x, y) => y > 0.38), cloth, [0, 0, 0], [HEAD[0] * 1.1, HEAD[1] * 1.1, HEAD[2] * 1.1]));
+      head.add(mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.016, 40), cloth, [0, 0.105, -0.01]));
+      const cone = mesh(new THREE.ConeGeometry(0.2, 0.5, 32), cloth, [0, 0.36, -0.03]);
       cone.rotation.x = -0.15;
       head.add(cone);
-      for (const [x, y] of [[0.06, 0.3], [-0.08, 0.4], [0.03, 0.52]]) head.add(mesh(SPHERE_LO, mat(c.trim, { emissive: c.trim, emissiveIntensity: 0.5 }), [x, y, 0.13], [0.018, 0.018, 0.01]));
+      for (const [x, y] of [[0.06, 0.24], [-0.08, 0.34], [0.03, 0.46]]) head.add(mesh(SPHERE_LO, mat(c.trim, { emissive: c.trim, emissiveIntensity: 0.5 }), [x, y, 0.13], [0.018, 0.018, 0.01]));
       return 'nohat';
     }
     case 'armor': {
@@ -552,21 +563,19 @@ function costumeHead(l, c, head) {
     }
     case 'fox': case 'cat': case 'bear': {
       const cloth = mat(c.suit, { roughness: 0.85 });
-      const hood = mesh(new THREE.SphereGeometry(1, 32, 20, Math.PI * 0.75, Math.PI * 1.5, 0, Math.PI * 0.7), cloth, [0, 0.03, -0.015], [0.275, 0.3, 0.285]);
-      hood.material.side = THREE.DoubleSide;
-      head.add(hood);
+      snugHood(head, cloth);
       const inner = mat(c.trim, { roughness: 0.8 });
       for (const s of [-1, 1]) {
         if (c.head === 'bear') {
-          head.add(mesh(SPHERE, cloth, [s * 0.17, 0.27, -0.02], [0.07, 0.07, 0.04]));
-          head.add(mesh(SPHERE, inner, [s * 0.17, 0.27, 0.01], [0.04, 0.04, 0.02]));
+          head.add(mesh(SPHERE, cloth, [s * 0.16, 0.24, -0.02], [0.07, 0.07, 0.04]));
+          head.add(mesh(SPHERE, inner, [s * 0.16, 0.24, 0.012], [0.04, 0.04, 0.02]));
         } else {
           const tall = c.head === 'fox' ? 0.19 : 0.12;
-          const ear = mesh(new THREE.ConeGeometry(0.075, tall, 4), cloth, [s * 0.15, 0.27 + tall * 0.35, -0.02]);
+          const ear = mesh(new THREE.ConeGeometry(0.075, tall, 4), cloth, [s * 0.14, 0.235 + tall * 0.35, -0.02]);
           ear.rotation.z = -s * 0.32;
           ear.rotation.y = Math.PI / 4;
           head.add(ear);
-          const earIn = mesh(new THREE.ConeGeometry(0.045, tall * 0.7, 4), inner, [s * 0.148, 0.265 + tall * 0.32, 0.012]);
+          const earIn = mesh(new THREE.ConeGeometry(0.045, tall * 0.7, 4), inner, [s * 0.138, 0.23 + tall * 0.32, 0.012]);
           earIn.rotation.copy(ear.rotation);
           head.add(earIn);
         }
@@ -576,13 +585,9 @@ function costumeHead(l, c, head) {
     case 'hero': {
       // Cowl over the head and upper face, with white eye slits.
       const cowl = mat(c.suit, { roughness: 0.55 });
-      head.add(mesh(shellGeometry((x, y) => y > -0.12), cowl, [0, 0, 0], [HEAD[0] * 1.035, HEAD[1] * 1.035, HEAD[2] * 1.035]));
-      for (const s of [-1, 1]) {
-        const slit = mesh(SPHERE_LO, mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: 0.3 }), [s * 0.085, 0.03, onFace(0.085, 0.03) + 0.012], [0.045, 0.022, 0.01]);
-        slit.rotation.z = s * -0.25;
-        head.add(slit);
-      }
-      return 'keep';
+      const eyeHole = (x, y, z) => z > 0.55 && ((Math.abs(x) - 0.36) / 0.22) ** 2 + ((y - 0.13) / 0.14) ** 2 < 1;
+      head.add(mesh(shellGeometry((x, y, z) => y > -0.05 && !eyeHole(x, y, z)), cowl, [0, 0, 0], [HEAD[0] * 1.06, HEAD[1] * 1.05, HEAD[2] * 1.1]));
+      return 'nohair';
     }
     default: return 'keep';
   }

@@ -354,8 +354,10 @@ function homePivot() {
   at(recentTile(), 0, 2);
   if (hero) at(gameTile(hero, { hero: true, caption: hero.lastPlayed ? `continue ${hero.name}` : hero.name }), 1, 0, 2, 2);
   else at(libraryTile(), 1, 0, 2, 2);
-  if (a) at(gameTile(a), 1, 2);
-  if (b) at(gameTile(b), 2, 2);
+  // The two tiles under the hero cycle through the rest of the library.
+  const rest = pool.slice(1);
+  if (a) at(gameTile(a, { cycle: { list: rest, slot: 0 } }), 1, 2);
+  if (b) at(gameTile(b, { cycle: { list: rest, slot: 1 } }), 2, 2);
   at(libraryTile(), 3, 0);
   const stream = state.streams[0];
   if (stream) at(streamTile(stream), 3, 1);
@@ -373,7 +375,8 @@ function buildChannels() {
   if (state.steamGames.length) {
     const lt = libraryTile();
     lt.w = 2; lt.h = 2;
-    pivots.push({ key: 'games', title: 'games', tiles: flow([lt, ...sorted(state.steamGames, 'recent').slice(0, 40).map((g) => gameTile(g))]) });
+    // Just a few recent games; the library tile has the rest.
+    pivots.push({ key: 'games', title: 'games', tiles: flow([lt, ...sorted(state.steamGames, 'recent').slice(0, 6).map((g) => gameTile(g))]) });
   }
   if (lib.shortcuts.length) pivots.push({ key: 'apps', title: 'apps', tiles: flow(sorted(lib.shortcuts, 'recent').map((g) => gameTile(g))) });
   const streaming = streamingChannel();
@@ -383,7 +386,6 @@ function buildChannels() {
   }
   const st = steamTiles();
   if (st[0] && st[0].type === 'profile') { st[0].w = 2; st[0].h = 2; }
-  st.splice(1, 0, avatarTile());
   pivots.push({ key: 'steam', title: 'steam', tiles: flow(st) });
   pivots.push({ key: 'settings', title: 'settings', tiles: flow(settingTiles()) });
   return pivots;
@@ -466,8 +468,7 @@ function tileEl(t) {
   } else if (t.type === 'avatar') {
     e.append(el('div', 'avatar-tile', avatarPic(look(), 'full', 320, 'av-full')));
   } else if (t.type === 'profile') {
-    e.append(el('div', 'avatar-tile', avatarPic(look(), 'full', 320, 'av-full')));
-    const pic = el('div', 'profile-pic', '');
+    const pic = el('div', 'profile-pic big-pic', '');
     fillGamerpic(pic, state.lib.user);
     e.append(pic);
     t.caption = displayName();
@@ -555,7 +556,68 @@ function tileRect(t, m, px) {
   };
 }
 
-function avatarShown() { return false; }
+// Home's lower game tiles show the next games every few seconds.
+let cycleStep = 0;
+function cycleTiles() {
+  const home = state.channels.find((c) => c.key === 'home');
+  if (!home || document.hidden) return;
+  const tiles = home.tiles.filter((t) => t.cycle && t.cycle.list.length > 2);
+  if (!tiles.length) return;
+  cycleStep++;
+  const hi = state.channels.indexOf(home);
+  for (const t of tiles) {
+    const focused = state.ch === hi && home.tiles[focusIndex(home)] === t;
+    if (focused) continue;
+    const list = t.cycle.list;
+    const g = list[(t.cycle.slot + cycleStep * 2) % list.length];
+    if (!g || g === t.game) continue;
+    const ti = home.tiles.indexOf(t);
+    const te = dash.querySelector(`.tile[data-p="${hi}"][data-t="${ti}"]`);
+    if (!te) continue;
+    Object.assign(t, { game: g, key: g.id + ':cycle' + t.cycle.slot, title: g.name, sub: gameSub(g), caption: null });
+    const fresh = artEl(g, ['header', 'portrait']);
+    fresh.classList.add('fade-in');
+    const old = te.querySelector('.art');
+    te.insertBefore(fresh, old);
+    old.classList.add('fade-out');
+    setTimeout(() => old.remove(), 700);
+    const cap = te.querySelector('.t-cap b');
+    if (cap) cap.textContent = g.name;
+  }
+  renderHints();
+}
+setInterval(cycleTiles, 6000);
+
+// On the steam pivot your avatar stands beside the tiles, like the
+// console's avatar screens.
+function avatarShown() {
+  const ch = state.channels[state.ch];
+  return !!(GL && ch && ch.key === 'steam' && !state.overlays.length);
+}
+
+function placeStandingAvatar(m, xs) {
+  const av = $('#avatar');
+  const show = avatarShown();
+  if (show && !dashAvatar) {
+    const c = document.createElement('canvas');
+    av.replaceChildren(c);
+    dashAvatar = new AvatarView(c);
+    dashAvatar.setLook(look());
+  }
+  const pv = state.channels[state.ch];
+  const cols = Math.max(1, ...pv.tiles.map((t) => t.c + t.w));
+  const gridRight = m.x0 + cols * (m.u + m.g) - m.g;
+  const next = xs[state.ch + 1] !== undefined ? xs[state.ch + 1] - xs[state.ch] + m.x0 : m.vw;
+  const room = Math.max(120, Math.min(m.vw, next) - gridRight);
+  const h = Math.min(m.vh * 0.62, room * 1.9);
+  const w = h * 0.5;
+  av.style.height = h + 'px';
+  av.style.width = w + 'px';
+  av.style.left = (gridRight + (room - w) / 2) + 'px';
+  av.style.top = (m.top + 3 * m.v + 2 * m.g - h * 0.93) + 'px';
+  av.classList.toggle('show', show);
+  if (dashAvatar) { if (show) dashAvatar.start(); else dashAvatar.stop(); }
+}
 
 function layout() {
   const m = metrics();
@@ -591,6 +653,7 @@ function layout() {
   labels.forEach((l, i) => l.classList.toggle('on', i === state.ch));
   const cur = labels[state.ch];
   if (cur) head.style.transform = `translate3d(${m.x0 - cur.offsetLeft}px, 0, 0)`;
+  placeStandingAvatar(m, xs);
   renderHints();
 }
 
@@ -715,9 +778,10 @@ function rebuild() {
 
 function dressAvatar() {
   for (const e of document.querySelectorAll('.tile .avatar-tile')) e.innerHTML = avatarPic(look(), 'full', 320, 'av-full');
+  if (dashAvatar) dashAvatar.setLook(look());
 }
 
-function wave() {}
+function wave() { if (dashAvatar) dashAvatar.wave(); }
 
 function look() {
   return normalizeLook(state.settings.avatarLook);
@@ -1232,7 +1296,7 @@ function avatarShot() {
   document.body.append(box);
   let lookIn = {};
   try { lookIn = JSON.parse(params.get('look') || '{}'); } catch { /* default look */ }
-  const v = new AvatarView(c, { animate: false, view: lookIn.view === 'head' ? 'head' : 'full' });
+  const v = new AvatarView(c, { animate: false, view: ['head', 'bust'].includes(lookIn.view) ? lookIn.view : 'full' });
   v.setLook(lookIn);
   v.render();
 }
