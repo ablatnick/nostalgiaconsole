@@ -14,7 +14,7 @@ more features will be added!!!
 | --- | --- |
 | ![Sign-in with everyone's avatar](docs/screenshots/signin.png) | ![Social pivot: friends list](docs/screenshots/social.png) |
 
-More in [Screenshots](#screenshots).
+More in [Screenshots](#screenshots) and [Dashboard styles](#dashboard-styles).
 
 > ❤️ Enjoying NostalgiaConsole? You can [support it on Venmo (@ablatnick)](https://venmo.com/u/ablatnick).
 
@@ -33,11 +33,28 @@ More in [Screenshots](#screenshots).
 Steam Deck, Moonlight and Jellyfin setup are under [Install](#install) and
 [Connect Steam and Jellyfin](#connect-steam-and-jellyfin).
 
+## Dashboard styles
+
+Pick the whole home screen in **settings > customize > dashboard style**
+(or from the guide). Each profile keeps its own. Every style shows the same
+library, Moonlight, Jellyfin, friends and settings, and A / X / Y / menu
+and the guide work the same in all of them.
+
+| | |
+| :---: | :---: |
+| ![360 metro](docs/screenshots/home.png)<br>**360 metro** (2011), the default | ![360 nxe](docs/screenshots/look-nxe.png)<br>**360 nxe** (2008): channels and a 3D card fan, with your avatar |
+| ![360 blades](docs/screenshots/look-blades.png)<br>**360 blades** (2005): one coloured blade per section | ![Cross media bar](docs/screenshots/look-xmb.png)<br>**Cross media bar**: categories across, items down, over a monthly wave |
+| ![Channels](docs/screenshots/look-wii.png)<br>**Channels**: pages of rounded channels and a clock bar | ![Channel preview](docs/screenshots/look-wii-preview.png)<br>Channels: the preview screen before a game starts |
+| ![Modern cards](docs/screenshots/look-ps5.png)<br>**Modern cards**: an icon row over the game's own artwork | ![Tile strip](docs/screenshots/look-switch.png)<br>**Tile strip**: big square tiles and round shortcuts, light or dark |
+
+The styles are original takes on what those console home screens felt
+like; they use no console makers' logos, fonts, sounds or artwork.
+
 ## Features
 
-- **Pivots** like the 2011 dashboard: search, home, games, apps, video,
-  streaming, social, steam and settings, with LB/RB to switch. Hide any of
-  them in settings > customize.
+- **Seven dashboard styles** (above). The default is the 2011 pivots:
+  search, home, games, apps, video, streaming, social, steam and settings,
+  with LB/RB to switch. Hide any section in settings > customize.
 - **Your Steam library**: installed games, non-Steam shortcuts, play time
   and your own custom grid art, straight from the Steam folder. A game
   library sorted by recent, A to Z, most played or size, with pins.
@@ -85,7 +102,7 @@ head, or any picture in the `gamerpics` folder in the user data folder.
 | B | Esc / Backspace / right-click | Back (on the dashboard: go home) |
 | X | X | Play now |
 | Y | Y | Pin / unpin (otherwise opens the game library) |
-| LB / RB | Q / E | Switch pivots, or change sort in the library |
+| LB / RB | Q / E | Switch pivots (or the style's sections), or change sort in the library |
 | Menu / Start | M | Game details |
 | View / Back, Guide | Tab, G / Home | Guide (LB/RB switch tabs) |
 | | F11 | Full screen |

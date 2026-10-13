@@ -125,8 +125,8 @@ test('the renderer offers exactly the customize values settings accept', () => {
   assert.deepStrictEqual(keysOf('LOOK_NAMES'), S.LOOKS);
   // Every style except the built-in metro has a module in looks/.
   const reg = fs.readFileSync(path.join(__dirname, '../src/renderer/looks/index.js'), 'utf8');
-  const mods = (reg.match(/LOOK_MODULES = \{([^}]*)\}/) || [])[1].split(',').map((x) => x.trim()).filter(Boolean);
-  assert.deepStrictEqual(mods.sort(), S.LOOKS.filter((l) => l !== 'metro').filter((l) => mods.includes(l)).sort());
+  const mods = (reg.match(/LOOK_MODULES = \{([^}]*)\}/) || [])[1].split(',').map((x) => x.split(':')[0].trim()).filter(Boolean);
+  assert.deepStrictEqual(mods.sort(), S.LOOKS.filter((l) => l !== 'metro').sort());
 });
 
 test('the dashboard style is kept per profile', () => {

@@ -8,5 +8,7 @@ import xmb from './xmb.js';
 import wii from './wii.js';
 import nxe from './nxe.js';
 import blades from './blades.js';
+import ps5 from './ps5.js';
+import tstrip from './switch.js';
 
-export const LOOK_MODULES = { nxe, blades, xmb, wii };
+export const LOOK_MODULES = { nxe, blades, xmb, wii, ps5, switch: tstrip };

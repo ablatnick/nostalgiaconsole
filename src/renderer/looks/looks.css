@@ -161,3 +161,91 @@ body[data-look="blades"] #hints { z-index: 60; color: #fff; }
 .blade-desc { display: flex; flex-direction: column; gap: .8vh; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .35); }
 .blade-desc b { font-size: clamp(16px, 3vh, 30px); font-weight: 400; }
 .blade-desc span { font-size: clamp(12px, 1.9vh, 19px); opacity: .9; }
+
+/* ---------- modern cards ---------- */
+body[data-look="ps5"] { background: #05070b; }
+body[data-look="ps5"] #top { display: none; }
+body[data-look="ps5"] #hints { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+.ps5 { position: fixed; inset: 0; overflow: hidden; color: #fff; }
+.ps5-hero { position: absolute; inset: 0; }
+.ps5-bg { position: absolute; inset: 0; opacity: 0; transition: opacity .5s; }
+.ps5-bg.in { opacity: 1; }
+.ps5-bg .art { position: absolute; inset: 0; }
+.ps5-bg .art .blur { display: none; }
+.ps5-bg .art .fg { width: 100%; height: 100%; object-fit: cover; }
+.ps5-bg.plain { background: radial-gradient(120% 90% at 70% 30%, #1d3b6b, #070b14 70%); }
+.ps5-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0, 0, 0, .78), rgba(0, 0, 0, .25) 55%, transparent), linear-gradient(transparent 55%, rgba(0, 0, 0, .7)); }
+.ps5-tabs { position: absolute; top: 4.5vh; left: 6vw; display: flex; gap: 2.4vw; font-size: clamp(14px, 2.4vh, 24px); }
+.ps5-tab { opacity: .6; cursor: pointer; text-transform: capitalize; padding-bottom: .4vh; border-bottom: 2px solid transparent; }
+.ps5-tab.on { opacity: 1; font-weight: 600; }
+.ps5-tab.focus { border-bottom-color: #fff; }
+.ps5-right { position: absolute; top: 4vh; right: 5vw; display: flex; align-items: center; gap: 1.6vw; font-size: clamp(14px, 2.2vh, 22px); }
+.ps5-me { width: 4.6vh; height: 4.6vh; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px rgba(255, 255, 255, .8); }
+.ps5-me img { width: 100%; height: 100%; object-fit: cover; }
+.ps5-row { position: absolute; left: 0; right: 0; top: 13vh; height: 16vh; }
+.ps5-icon { position: absolute; left: 0; top: 0; border-radius: 1.4vh; overflow: hidden; background: rgba(255, 255, 255, .1); cursor: pointer;
+  transition: transform .3s cubic-bezier(.2, .8, .25, 1), width .3s, height .3s, opacity .3s; box-shadow: 0 6px 18px rgba(0, 0, 0, .4); }
+.ps5-icon .art { position: absolute; inset: 0; }
+.ps5-icon .art .blur { display: none; }
+.ps5-icon .art .fg { width: 100%; height: 100%; object-fit: cover; }
+.ps5-icon .art-icon, .ps5-icon .art-pic { display: grid; place-items: center; background: linear-gradient(160deg, #2a3f63, #121a2b); }
+.ps5-icon .art-icon .ico { width: 46%; height: 46%; }
+.ps5-icon .art-pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ps5-icon .art.noart { display: grid; place-items: center; font-size: 11px; text-align: center; padding: 4px; }
+.ps5-icon.focus { box-shadow: 0 0 0 3px #fff, 0 10px 26px rgba(0, 0, 0, .55); }
+.ps5-name { position: absolute; font-size: clamp(14px, 2.6vh, 26px); white-space: nowrap; pointer-events: none; }
+.ps5-name b { font-weight: 500; text-shadow: 0 1px 4px rgba(0, 0, 0, .6); }
+.ps5-detail { position: absolute; left: 6vw; top: 42vh; width: 42vw; display: flex; flex-direction: column; gap: 3vh; }
+.ps5-logo img { max-width: 30vw; max-height: 18vh; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .5)); }
+.ps5-logo h1 { margin: 0; font-size: clamp(24px, 6vh, 60px); font-weight: 600; text-shadow: 0 2px 10px rgba(0, 0, 0, .6); }
+.ps5-bigico .ico { width: 12vh; height: 12vh; margin-bottom: 1vh; }
+.ps5-actions { display: flex; gap: 1vw; }
+.ps5-actions button { font: inherit; font-size: clamp(14px, 2.4vh, 24px); color: #111; background: #fff; border: 0; border-radius: 4vh; padding: 1.4vh 3.4vw; cursor: pointer; text-transform: capitalize; }
+.ps5-actions .ps5-more { padding: 1.4vh 1.6vw; background: rgba(255, 255, 255, .25); color: #fff; }
+.ps5-actions button.focus { box-shadow: 0 0 0 3px rgba(255, 255, 255, .9), 0 0 0 6px rgba(255, 255, 255, .25); transform: scale(1.04); }
+.ps5-sub { font-size: clamp(12px, 1.9vh, 19px); opacity: .85; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+.ps5-empty { position: absolute; left: 6vw; top: 4vh; opacity: .7; }
+
+/* ---------- tile strip ---------- */
+body[data-look="switch"] #top { display: none; }
+body[data-look="switch"] #hints { color: #555; }
+body[data-look="switch"]:has(.tstrip.dark) #hints { color: #ddd; }
+.tstrip { position: fixed; inset: 0; overflow: hidden; background: #ebebeb; color: #2d2d2d; --ts-accent: #0ab9e6; }
+.tstrip.dark { background: #2d2d2d; color: #fff; }
+.ts-top { position: absolute; top: 4vh; left: 5vw; right: 5vw; display: flex; justify-content: space-between; align-items: center; }
+.ts-user { width: 7vh; height: 7vh; border-radius: 50%; overflow: hidden; cursor: pointer; box-shadow: 0 0 0 2px rgba(0, 0, 0, .1); }
+.ts-user img { width: 100%; height: 100%; object-fit: cover; }
+.ts-user.on { box-shadow: 0 0 0 3px var(--ts-accent), 0 0 0 6px rgba(10, 185, 230, .3); }
+.ts-clock { font-size: clamp(16px, 2.8vh, 28px); }
+.ts-label { position: absolute; color: var(--ts-accent); font-size: clamp(14px, 2.6vh, 26px); white-space: nowrap; opacity: 0; transition: opacity .2s, left .25s; }
+.ts-label.show { opacity: 1; }
+.ts-strip { position: absolute; left: 0; right: 0; height: 42vh; }
+.ts-tile { position: absolute; left: 0; top: 0; background: #fff; cursor: pointer; transition: transform .25s cubic-bezier(.2, .8, .25, 1); box-shadow: 0 2px 6px rgba(0, 0, 0, .12); }
+.tstrip.dark .ts-tile { background: #3d3d3d; }
+.ts-tile .art { position: absolute; inset: 0; overflow: hidden; }
+.ts-tile .art .blur { display: none; }
+.ts-tile .art .fg { width: 100%; height: 100%; object-fit: cover; }
+.ts-tile .art.noart { display: grid; place-items: center; text-align: center; padding: 10px; font-weight: 600; }
+.ts-tile .noart-name { color: inherit; text-shadow: none; }
+.ts-face { display: grid; place-items: center; align-content: center; gap: 2vh; }
+.ts-face > .art { position: relative; inset: auto; width: 40%; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; background: rgba(10, 185, 230, .12); color: var(--ts-accent); }
+.ts-face > .art .ico { width: 55%; height: 55%; }
+.ts-face > .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ts-face b { font-size: clamp(13px, 2.2vh, 22px); font-weight: 500; text-align: center; padding: 0 10px; }
+.ts-tile.on { box-shadow: 0 0 0 4px var(--ts-accent), 0 0 0 8px #fff, 0 6px 16px rgba(0, 0, 0, .2); animation: ts-pulse 1.4s ease-in-out infinite; }
+.tstrip.dark .ts-tile.on { box-shadow: 0 0 0 4px var(--ts-accent), 0 0 0 8px #2d2d2d, 0 6px 16px rgba(0, 0, 0, .4); }
+@keyframes ts-pulse { 50% { box-shadow: 0 0 0 4px #4fe0ff, 0 0 0 8px #fff, 0 6px 16px rgba(0, 0, 0, .2); } }
+.ts-round { position: absolute; left: 0; right: 0; top: 72vh; display: flex; justify-content: center; gap: 2.4vw; }
+.ts-btn { position: relative; width: 9vh; height: 9vh; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; background: #fff; color: #2d2d2d; box-shadow: 0 2px 6px rgba(0, 0, 0, .12); }
+.tstrip.dark .ts-btn { background: #3d3d3d; color: #fff; }
+.ts-btn .ico { width: 44%; height: 44%; }
+.ts-btn span { position: absolute; top: 108%; white-space: nowrap; font-size: clamp(11px, 1.7vh, 17px); color: var(--ts-accent); opacity: 0; }
+.ts-btn.on { box-shadow: 0 0 0 3px var(--ts-accent), 0 0 0 6px rgba(10, 185, 230, .3); }
+.ts-btn.on span { opacity: 1; }
+.ts-foot { position: absolute; left: 5vw; right: 5vw; bottom: 9vh; border-top: 1px solid rgba(0, 0, 0, .25); }
+.tstrip.dark .ts-foot { border-top-color: rgba(255, 255, 255, .3); }
+.ts-foot .ico { position: absolute; left: 0; top: 1.6vh; width: 3.4vh; height: 3.4vh; opacity: .6; }
+.ts-foot::after { content: attr(data-section); position: absolute; left: 5vh; top: 1.8vh; font-size: clamp(12px, 2vh, 20px); opacity: .7; text-transform: capitalize; }
+.ts-empty { position: absolute; left: 5vw; top: 15vh; opacity: .7; }
+body[data-look="switch"] #hints { left: auto; right: 5vw; justify-content: flex-end; }
+.ts-tile .ts-face { background: transparent; }

@@ -181,7 +181,7 @@ export default function createWii(ctx, root) {
     frame.append(el('div', 'wii-pv-text', `<b>${esc(itemTitle(t))}</b><span>${esc(itemSub(ctx, t))}</span>`));
     const btns = el('div', 'wii-pv-btns', '<button class="wii-btn menu">menu</button><button class="wii-btn start">start</button>');
     btns.querySelector('.menu').addEventListener('click', () => closePreview());
-    btns.querySelector('.start').addEventListener('click', () => { preview.btn = 1; ctx.activate(); setTimeout(closePreview, 500); });
+    btns.querySelector('.start').addEventListener('click', () => { const tile = preview.tile; sound.play('select'); ctx.play(tile); setTimeout(() => closePreview(true), 500); });
     pv.append(frame, btns);
     pv.classList.add('show');
     sound.play('open');
@@ -228,8 +228,10 @@ export default function createWii(ctx, root) {
         if (a === 'b') { closePreview(); return true; }
         if (a === 'a') {
           if (preview.btn === 0) { closePreview(); return true; }
+          sound.play('select');
+          ctx.play(preview.tile);
           setTimeout(() => closePreview(true), 500);
-          return false; // app.js starts the game
+          return true;
         }
         return a === 'up' || a === 'down' || a === 'lb' || a === 'rb';
       }

@@ -919,7 +919,16 @@ const lookCtx = {
   state, el, esc, icon, artEl, artUrl, sound, GL, AvatarView,
   catalog, recentItems, isPinned, gameSub, timeAgo, displayName, gamesLine, gamerscoreText, look: () => look(),
   avatarPic: (...a) => avatarPic(...a), fillGamerpic: (...a) => fillGamerpic(...a),
-  activate: () => activateTile(), hints: () => renderHints(), openGuide: () => openGuide(), openLibrary: (o) => openLibrary(o),
+  activate: () => activateTile(),
+  // Start a game, stream or video straight away (A opens details).
+  play: (t) => {
+    if (t && t.type === 'game' && t.game.kind === 'jf') playVideo(t.game);
+    else if (t && t.type === 'game') launch(t.game);
+    else if (t && t.type === 'stream') startStream(t.game);
+    else activateTile();
+  },
+  activateUser: () => openSignIn(),
+  hints: () => renderHints(), openGuide: () => openGuide(), openLibrary: (o) => openLibrary(o),
 };
 
 function makeLook(id) {

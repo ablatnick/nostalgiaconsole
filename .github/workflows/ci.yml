@@ -30,7 +30,7 @@ jobs:
           ELECTRON_FLAGS: --enable-unsafe-swiftshader --use-angle=swiftshader
       # Without WebGL the avatars fall back to SVG pictures.
       - name: Smoke test without WebGL
-        run: xvfb-run -a test/readme-shots.sh home steam signin avatar-editor
+        run: xvfb-run -a test/readme-shots.sh home steam signin avatar-editor look-nxe
         env:
           OUT: smoke/no-webgl
           ELECTRON_FLAGS: --disable-gpu --disable-software-rasterizer
