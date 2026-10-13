@@ -594,3 +594,11 @@ body.has-overlay #hints { color: var(--dim); text-shadow: none; }
 @keyframes art-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes art-out { from { opacity: 1; } to { opacity: 0; } }
 .profile-pic.big-pic { left: 50%; top: 38%; right: auto; width: 34%; transform: translate(-50%, -50%); border-width: 3px; }
+
+/* gamerpic picker */
+.pic-grid { --cw: clamp(110px, 12vw, 190px); }
+.card.pic { height: var(--cw); background: linear-gradient(160deg, #f4f6f7, #d8dee2); display: grid; place-items: center; }
+.card.pic img, .card.pic .gamerpic-av { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card.pic .pic-ico { width: 40%; height: 40%; color: var(--dim); }
+.card.pic.folder { background: transparent; border-style: dashed; }
+.gc-pic img, .profile-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }

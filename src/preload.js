@@ -18,4 +18,6 @@ contextBridge.exposeInMainWorld('nostalgia', {
   onWelcomeBack: (cb) => ipcRenderer.on('welcome-back', () => cb()),
   soundPack: () => ipcRenderer.invoke('sounds:pack'),
   soundFolder: () => ipcRenderer.invoke('sounds:folder'),
+  gamerpics: () => ipcRenderer.invoke('gamerpics:list'),
+  gamerpicFolder: () => ipcRenderer.invoke('gamerpics:folder'),
 });

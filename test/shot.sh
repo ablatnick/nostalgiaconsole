@@ -4,6 +4,6 @@
 cd "$(dirname "$0")/.."
 ud=test/.userdata
 mkdir -p "$ud"
-printf '{"theme":"%s","intro":false}\n' "${4:-classic}" > "$ud/settings.json"
+printf '{"theme":"%s","intro":false,"gamerpic":"%s"}\n' "${4:-classic}" "${GAMERPIC:-}" > "$ud/settings.json"
 exec timeout 90 npx electron . --no-sandbox --steam-root=test/fixture/Steam --user-data="$ud" \
   --capture="$1" --keys="${2:-}" --size="${3:-1280x800}" --delay=3500 2>&1 | grep -iv 'gtk\|dbus\|gles\|viz'

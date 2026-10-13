@@ -261,6 +261,7 @@ function settingTiles() {
     { key: 'set:after', type: 'icon', icon: 'rocket', label: 'after launch', value: s.afterLaunch, title: 'after a game starts', sub: 'stay open, minimize, or close nostalgiaconsole', colors: ['#e0632a', '#93330b'], activate: set({ afterLaunch: next(AFTER_LAUNCH, s.afterLaunch) }) },
     { key: 'set:tools', type: 'icon', icon: 'wrench', label: 'steam tools', value: s.showTools ? 'shown' : 'hidden', title: 'steam tools', sub: `proton, runtimes and redistributables (${state.lib.tools.length} installed)`, colors: ['#6d7a84', '#3d474e'], activate: set({ showTools: !s.showTools }) },
     { key: 'set:moonlight', type: 'icon', icon: 'stream', label: 'moonlight', value: onoff(s.moonlight), title: 'moonlight streaming', sub: (state.lib.moonlight && state.lib.moonlight.installed) ? 'show apps from your paired moonlight hosts' : 'moonlight is not installed on this device', colors: ['#4b3fa0', '#221a5c'], activate: set({ moonlight: !s.moonlight }) },
+    { key: 'set:gamerpic', type: 'icon', icon: 'image', label: 'gamerpic', value: s.gamerpic ? (s.gamerpic === 'avatar' ? 'my avatar' : 'picture') : 'steam picture', title: 'gamerpic', activate: () => openGamerpics() },
     { key: 'set:avatar', type: 'icon', icon: 'user', label: 'profile picture', value: onoff(s.communityAvatar), title: 'profile picture', sub: 'use your steam community avatar (public profiles)', colors: ['#3a9d55', '#1d5e2f'], activate: set({ communityAvatar: !s.communityAvatar }) },
     { key: 'set:refresh', type: 'icon', icon: 'refresh', label: 'refresh library', value: '', title: 'refresh library', sub: state.lib.root ? `reading ${state.lib.root}` : 'steam folder not found', colors: ['#5aa51e', '#2f6f0c'],
       activate: async () => {
@@ -277,8 +278,8 @@ function steamTiles() {
   const tiles = [];
   if (u) {
     tiles.push({
-      key: 'steam:profile', type: 'profile', title: displayName(), sub: 'your steam profile',
-      activate: () => openSteam('profile', u.steamId64),
+      key: 'steam:profile', type: 'profile', title: displayName(), sub: 'change your gamerpic',
+      activate: () => openGamerpics(),
     });
   }
   const t = (key, ico, label, sub, colors, action) => ({ key: 'steam:' + key, type: 'icon', icon: ico, label, value: '', title: label, sub, colors, activate: () => openSteam(action) });
@@ -791,7 +792,16 @@ function look() {
 
 function fillGamerpic(box, user) {
   box.innerHTML = '';
-  if (user && user.avatar) {
+  const pick = state.settings.gamerpic;
+  if (pick && pick !== 'avatar') {
+    const img = new Image();
+    img.alt = '';
+    img.src = 'nostalgia://gamerpics/' + encodeURIComponent(pick);
+    img.onerror = () => { box.innerHTML = avatarPic(look()); };
+    box.append(img);
+    return;
+  }
+  if (pick !== 'avatar' && user && user.avatar) {
     const img = new Image();
     img.alt = '';
     img.src = `nostalgia://art/avatar/${user.steamId64}/img?v=${state.avatarStamp}`;
@@ -1053,6 +1063,7 @@ function openGuide() {
       { icon: 'controller', label: 'dashboard home', run: goChannel('home') },
       { icon: 'grid', label: 'game library', note: `${state.all.length}`, run: () => { closeAll(); openLibrary(); } },
       { icon: 'user', label: 'my avatar', run: () => { closeAll(); openAvatarEditor(); } },
+      { icon: 'image', label: 'change gamerpic', run: () => { closeAll(); openGamerpics(); } },
       { icon: 'bigpicture', label: 'steam big picture', run: () => { closeAll(); openSteam('bigpicture'); } },
       { icon: 'fullscreen', label: 'toggle full screen', run: () => api.toggleFullscreen() },
       { icon: 'power', label: 'quit nostalgiaconsole', run: () => api.quit() },
@@ -1099,6 +1110,85 @@ function openGuide() {
     },
     hints: () => [['a', 'select'], ['lb', 'tabs'], ['b', 'close']],
   });
+}
+
+// ---------- gamerpic picker ----------
+
+async function openGamerpics() {
+  if (state.overlays.some((o) => o.gamerpics)) return;
+  sound.play('open');
+  const files = await api.gamerpics().catch(() => []);
+  const root = el('div', 'overlay library gamerpics');
+  const panel = el('div', 'lib-panel');
+  root.append(panel);
+  panel.append(el('div', 'lib-head', '<h1>change gamerpic</h1>'));
+  const grid = el('div', 'lib-grid pic-grid');
+  const cap = el('div', 'lib-caption');
+  panel.append(grid, cap);
+
+  const user = state.lib.user;
+  const items = [
+    { id: '', label: 'steam picture', html: user && user.avatar ? `<img alt="" src="nostalgia://art/avatar/${user.steamId64}/img?v=${state.avatarStamp}">` : icon('user', 'pic-ico'), hide: !(user && user.avatar) },
+    { id: 'avatar', label: 'my avatar', html: avatarPic(look()) },
+    ...files.map((f) => ({ id: f, label: f.replace(/\.[^.]+$/, ''), html: `<img alt="" src="nostalgia://gamerpics/${encodeURIComponent(f)}">` })),
+    { id: null, label: 'add pictures…', html: icon('image', 'pic-ico'), folder: true },
+  ].filter((it) => !it.hide);
+
+  let i = Math.max(0, items.findIndex((it) => it.id === state.settings.gamerpic));
+  const cards = items.map((it, k) => {
+    const c = el('div', 'card pic' + (it.folder ? ' folder' : ''), it.html);
+    c.addEventListener('click', () => { if (k === i) choose(); else { focus(k); sound.play('move'); } });
+    grid.append(c);
+    return c;
+  });
+
+  function focus(n) {
+    i = Math.max(0, Math.min(items.length - 1, n));
+    cards.forEach((c, k) => c.classList.toggle('focused', k === i));
+    cards[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const it = items[i];
+    cap.innerHTML = `<div class="cap-title">${esc(it.label)}</div><div class="cap-sub">${it.folder ? 'put pictures in the gamerpics folder' : it.id === state.settings.gamerpic ? 'your gamerpic now' : ''}</div><div class="cap-count">${i + 1} of ${items.length}</div>`;
+  }
+
+  async function choose() {
+    const it = items[i];
+    if (it.folder) {
+      const dir = await api.gamerpicFolder();
+      toast(`add pictures to ${dir}, then open this again`);
+      return;
+    }
+    sound.play('select');
+    state.settings = await api.setSettings({ gamerpic: it.id });
+    renderGamercard();
+    rebuild();
+    notify('gamerpic changed', displayName(), { chime: true });
+    popOverlay({ silent: true });
+  }
+
+  function cols() {
+    if (cards.length < 2) return 1;
+    const top = cards[0].offsetTop;
+    const n = cards.findIndex((c) => c.offsetTop !== top);
+    return n < 0 ? cards.length : n;
+  }
+
+  pushOverlay({
+    el: root,
+    gamerpics: true,
+    handle(a) {
+      const c = cols();
+      const before = i;
+      if (a === 'left') focus(i - 1);
+      else if (a === 'right') focus(i + 1);
+      else if (a === 'up') focus(i - c);
+      else if (a === 'down') focus(i + c);
+      else if (a === 'a') { choose(); return; }
+      else if (a === 'b') { popOverlay(); return; }
+      if (i !== before) sound.play('move');
+    },
+    hints: () => [['a', 'select'], ['b', 'back']],
+  });
+  requestAnimationFrame(() => focus(i));
 }
 
 // ---------- avatar editor ----------

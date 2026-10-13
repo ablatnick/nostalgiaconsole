@@ -18,6 +18,7 @@ const DEFAULTS = {
   moonlight: true,
   avatar: true,
   avatarLook: null,
+  gamerpic: '',
   gamertag: '',
   pinned: [],
 };
@@ -40,6 +41,9 @@ function sanitize(input) {
   }
   if (AFTER_LAUNCH.includes(input.afterLaunch)) s.afterLaunch = input.afterLaunch;
   if (typeof input.gamertag === 'string') s.gamertag = input.gamertag.slice(0, 32);
+  // '' = Steam picture when there is one, 'avatar' = avatar head, or a file
+  // name from the gamerpics folder.
+  if (typeof input.gamerpic === 'string' && (input.gamerpic === '' || input.gamerpic === 'avatar' || /^[\w .()-]{1,80}\.(png|jpe?g|webp|gif)$/i.test(input.gamerpic))) s.gamerpic = input.gamerpic;
   if (Array.isArray(input.pinned)) {
     s.pinned = [...new Set(input.pinned.filter((p) => typeof p === 'string' && /^(steam|shortcut):\d+$|^moonlight:[0-9A-Fa-f-]{8,64}:\d+$/.test(p)))].slice(0, 24);
   }

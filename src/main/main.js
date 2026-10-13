@@ -51,6 +51,15 @@ const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inl
 const SOUND_NAMES = ['move', 'channel', 'select', 'back', 'open', 'close', 'error', 'notify', 'launch', 'intro'];
 const SOUND_EXT = { '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.flac': 'audio/flac' };
 
+// Gamerpics are pictures the user puts in <user data>/gamerpics.
+const PIC_EXT = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' };
+function gamerpics() {
+  const dir = path.join(app.getPath('userData'), 'gamerpics');
+  let files = [];
+  try { files = fs.readdirSync(dir); } catch { return []; }
+  return files.filter((f) => PIC_EXT[path.extname(f).toLowerCase()] && /^[\w .()-]{1,80}$/.test(f)).sort();
+}
+
 // A sound pack is a folder of files named after the interface sounds
 // (move.wav, select.ogg, ...) in <user data>/sounds.
 function soundPack() {
@@ -84,6 +93,13 @@ async function serve(request) {
     } catch {
       return new Response('not found', { status: 404 });
     }
+  }
+  if (url.host === 'gamerpics') {
+    const name = decodeURIComponent(url.pathname).replace(/^\/+/, '');
+    if (!gamerpics().includes(name)) return new Response('not found', { status: 404 });
+    return new Response(await fs.promises.readFile(path.join(app.getPath('userData'), 'gamerpics', name)), {
+      headers: { 'content-type': PIC_EXT[path.extname(name).toLowerCase()] },
+    });
   }
   if (url.host === 'sounds') {
     const name = decodeURIComponent(url.pathname).replace(/^\/+/, '');
@@ -334,6 +350,13 @@ ipcMain.handle('window:fullscreen', () => {
 });
 ipcMain.handle('app:quit', () => app.quit());
 ipcMain.handle('sounds:pack', () => soundPack());
+ipcMain.handle('gamerpics:list', () => gamerpics());
+ipcMain.handle('gamerpics:folder', async () => {
+  const dir = path.join(app.getPath('userData'), 'gamerpics');
+  fs.mkdirSync(dir, { recursive: true });
+  if (!opts.capture) await shell.openPath(dir);
+  return dir;
+});
 ipcMain.handle('sounds:folder', async () => {
   const dir = path.join(app.getPath('userData'), 'sounds');
   fs.mkdirSync(dir, { recursive: true });
