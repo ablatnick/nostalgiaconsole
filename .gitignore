@@ -2,6 +2,7 @@ node_modules/
 dist/
 test/fixture/
 *.png
+!docs/screenshots/*.png
 !build/icon.png
 !docs/*.png
 test/.userdata/

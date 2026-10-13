@@ -14,12 +14,15 @@ big picture.
 | | |
 | --- | --- |
 | ![Games pivot](docs/screenshots/games.png) | ![Steam pivot with your avatar](docs/screenshots/steam.png) |
+| ![Social pivot: friends list](docs/screenshots/social.png) | ![Video pivot (Jellyfin)](docs/screenshots/video.png) |
+| ![Sign-in with everyone's avatar](docs/screenshots/signin.png) | ![Customize: colors, layout and tabs](docs/screenshots/customize.png) |
 | ![Guide](docs/screenshots/guide.png) | ![Game details](docs/screenshots/details.png) |
 | ![Game library](docs/screenshots/library.png) | ![Avatar editor](docs/screenshots/avatar-editor.png) |
-| ![Midnight theme](docs/screenshots/midnight.png) | ![Boot screen](docs/screenshots/boot.png) |
+| ![Settings pivot](docs/screenshots/settings.png) | ![Midnight theme](docs/screenshots/midnight.png) |
+| ![Boot screen](docs/screenshots/boot.png) | |
 
-Screenshots use the test library from `test/make-fixture.js` (rendered with
-`test/shot.sh`).
+Screenshots use the test library from `test/make-fixture.js` and
+`test/web-fixture.json`; `test/readme-shots.sh` regenerates them all.
 
 ## Features
 
